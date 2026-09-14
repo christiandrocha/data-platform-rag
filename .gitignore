@@ -1,0 +1,33 @@
+# Secrets
+.env
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# RAGAS reports and dev artifacts (ephemeral)
+.claude/dev/logs/*.log
+.claude/dev/reports/*.json
+.claude/dev/tasks/*.md
+!.claude/dev/**/.gitkeep
+
+# Local corpus clones (transient)
+/tmp/dpr-corpus-*/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store

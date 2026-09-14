@@ -1,0 +1,48 @@
+[project]
+name = "data-platform-rag"
+version = "0.1.0"
+description = "RAG system grounded on production data engineering ADRs"
+authors = [{name = "Christian Rocha"}]
+requires-python = ">=3.11"
+license = {text = "MIT"}
+readme = "README.md"
+
+dependencies = [
+    "streamlit>=1.35",
+    "anthropic>=0.28",
+    "psycopg[binary]>=3.2",
+    "pgvector>=0.3",
+    "sentence-transformers>=3.0",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.4",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+observability = [
+    "langfuse>=2.50",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+    "pre-commit>=3.7",
+    "bandit>=1.7",
+]
+eval = [
+    "ragas>=0.2",
+    "datasets>=3.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+asyncio_mode = "auto"

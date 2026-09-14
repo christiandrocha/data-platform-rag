@@ -1,0 +1,49 @@
+name: ragas
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: dpr
+          POSTGRES_PASSWORD: dpr_ci
+          POSTGRES_DB: data_platform_rag
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev,eval]"
+      - name: Apply schema
+        env:
+          PGPASSWORD: dpr_ci
+        run: |
+          psql -h localhost -U dpr -d data_platform_rag -f sql/00_extensions.sql
+          psql -h localhost -U dpr -d data_platform_rag -f sql/01_schema.sql
+          psql -h localhost -U dpr -d data_platform_rag -f sql/02_indexes.sql
+      - name: Index corpus
+        env:
+          DATABASE_URL: postgresql://dpr:dpr_ci@localhost:5432/data_platform_rag
+        run: python scripts/index_corpus.py
+      - name: Run RAGAS
+        env:
+          DATABASE_URL: postgresql://dpr:dpr_ci@localhost:5432/data_platform_rag
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python scripts/run_evaluation.py --output ragas-report.json
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ragas-report
+          path: ragas-report.json

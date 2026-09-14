@@ -1,0 +1,45 @@
+# Golden set — draft. Fill during BUILD phase (feature: golden-set-curation).
+# Target: 50 questions distributed as documented in README.md
+
+- id: q001
+  intent: decision
+  question: "Why did the Snowflake project choose Snowpipe Streaming over the classic file-based Snowpipe?"
+  expected_answer: "The classic Snowpipe was already running but had file-based ingestion overhead. Streaming was chosen after measuring cost and confirming v4 connector managed pipes met the latency target."
+  expected_source_paths:
+    - docs/adr/ADR-0029.md
+  should_fallback: false
+
+- id: q002
+  intent: decision
+  question: "Why does the Databricks project use one unified Lakeflow pipeline instead of many parametrized notebooks?"
+  expected_answer: "Unity Catalog attributes lineage by notebook path, not by parametrized execution. Twenty Bronze runs of the same notebook collapse to a single lineage node, obscuring per-domain visibility. ADR-007 supersedes ADR-003 for this reason."
+  expected_source_paths:
+    - docs/adr/ADR-007.md
+  should_fallback: false
+
+- id: q003
+  intent: architecture
+  question: "How does the Snowflake project enforce data contracts?"
+  expected_answer: "Via Confluent Schema Registry with Avro BACKWARD compatibility, plus a CONFIG.TABLE_METADATA table that feeds the resolve_cdc macro. See ADR-0030."
+  expected_source_paths:
+    - docs/adr/ADR-0030.md
+    - README.md
+  should_fallback: false
+
+- id: q004
+  intent: hybrid
+  question: "What are the main differences in how the Snowflake and Databricks projects handle CDC schema evolution?"
+  expected_answer: "Snowflake uses Confluent Schema Registry + Avro + CONFIG.TABLE_METADATA. Databricks uses YAML data contracts validated by test_contracts.py in CI. Both enforce backward-compatible evolution but through different mechanisms."
+  expected_source_paths:
+    - docs/adr/ADR-0030.md  # snowflake
+    - README.md              # databricks contracts section
+  should_fallback: false
+
+- id: q005
+  intent: out-of-scope
+  question: "What is Christian's opinion on Apache Flink versus Kafka Streams?"
+  expected_answer: null
+  expected_source_paths: []
+  should_fallback: true
+
+# TODO(BUILD): expand to 50 questions following README.md distribution

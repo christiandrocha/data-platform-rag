@@ -1,0 +1,73 @@
+# WORKFLOW_CONTRACTS — inter-phase handoff contracts
+# What each phase must produce for the next phase to start.
+
+version: "1.0"
+
+phases:
+  brainstorm:
+    produces:
+      - .claude/sdd/features/{slug}/BRAINSTORM.md
+    exit_criteria:
+      - "Emerging preference identified OR explicit park"
+    next_phase: define
+    next_phase_optional_when: "status is Parked"
+
+  define:
+    consumes:
+      - .claude/sdd/features/{slug}/BRAINSTORM.md
+    produces:
+      - .claude/sdd/features/{slug}/DEFINE.md
+    exit_criteria:
+      - "Clarity Score >= 12/15"
+      - "All acceptance tests are observable"
+      - "Success criteria include numbers"
+    next_phase: design
+
+  design:
+    consumes:
+      - .claude/sdd/features/{slug}/DEFINE.md
+    produces:
+      - .claude/sdd/features/{slug}/DESIGN.md
+      - "docs/adr/ADR-XXX-{topic}.md IF architectural"
+    exit_criteria:
+      - "All open questions from DEFINE either resolved or explicitly deferred"
+      - "Test plan enumerates unit + integration + manual verification"
+      - "RAGAS impact assessed (regression risk yes/no)"
+    next_phase: build
+
+  build:
+    consumes:
+      - .claude/sdd/features/{slug}/DESIGN.md
+    produces:
+      - "code in data_platform_rag/**"
+      - "tests in tests/**"
+      - .claude/sdd/features/{slug}/BUILD_REPORT.md
+    exit_criteria:
+      - "make lint clean"
+      - "make test green"
+      - "make eval shows no regression on golden set"
+    next_phase: iterate
+
+  iterate:
+    consumes:
+      - .claude/sdd/features/{slug}/BUILD_REPORT.md
+    produces:
+      - "amended code, updated BUILD_REPORT with deviations logged"
+    exit_criteria:
+      - "All acceptance tests from DEFINE pass"
+      - "RAGAS metrics meet targets"
+    next_phase: ship
+
+  ship:
+    consumes:
+      - .claude/sdd/features/{slug}/BUILD_REPORT.md
+    produces:
+      - "merged PR"
+      - .claude/sdd/features/{slug}/SHIPPED.md
+      - "deploy to Streamlit Cloud (via git push)"
+    exit_criteria:
+      - "PR merged to main"
+      - "Deploy verified against production Streamlit URL"
+      - "RAGAS regression check in CI green"
+    next_phase: null  # terminal
+    on_completion: "move .claude/sdd/features/{slug}/ to .claude/sdd/archive/{slug}/"

@@ -162,7 +162,12 @@ make verify-indexes             # EXPLAIN ANALYZE the top queries, compare to ba
 # Evaluation
 make eval                       # run RAGAS against golden set, push scores to Langfuse
 make eval-ci                    # eval + write results to .claude/dev/reports/ragas-{timestamp}.json
-make golden-set-check           # validate golden-set/*.yml schema
+make golden-set-check           # validate golden-set/*.yml schema + ADR coverage
+make golden-set-next            # next uncovered ADR in the seeded walk order
+make golden-set-next-architecture        # next uncovered README section / contract / macro
+make golden-set-next-comparison-pair     # next cross-project ADR pair for a comparison question
+make verify-adversarials        # Layer 1: literal contamination probes (blocks eval)
+make audit-adversarials q=q005  # Layer 2: Opus semantic audit (advisory)
 
 # Observability
 make langfuse-check             # verify Langfuse credentials and connectivity
@@ -176,6 +181,12 @@ make precommit                  # run all pre-commit hooks
 # Deploy
 make deploy                     # push to streamlit cloud (via git)
 ```
+
+**Corpus location.** Scripts that read the corpus default to the newest
+`/tmp/dpr-corpus-*`, created by `make index-corpus`. Local dev may override
+`--corpus-dir` (or `CORPUS_DIR=` for make targets) for iteration speed; CI uses
+the default for reproducibility — a GitHub Actions runner has no `~/Documents`,
+so `/tmp` is the only path that works in both environments.
 
 ---
 

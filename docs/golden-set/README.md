@@ -9,6 +9,7 @@ Format: YAML per question in `evaluation_questions.yml`.
 
 ```yaml
 - id: q001
+  provenance: human               # human | llm — see below
   intent: decision | architecture | comparison | out-of-scope
   question: "What is the question?"
   expected_answer: "Ground truth answer"
@@ -29,6 +30,24 @@ drift apart; a derived one cannot. Consumers call
 inferred: both repos carry a `README.md` and a `docs/adr/` tree, so a bare path
 does not identify a document. `scripts/validate_golden_set.py` rejects entries
 without it, and also enforces the distribution below once the set reaches 50.
+
+## Provenance
+
+Every question declares `provenance: human | llm`.
+
+ADR-011 Commitment 1 reserves question authorship to a human. The field exists
+because that ADR also pre-approves **retreat A3**, under which an LLM may propose
+`architecture` questions while a human writes all `decision`, `comparison`, and
+`out-of-scope` ones. When A3 is invoked:
+
+- Human questions are written and committed **before** the LLM proposes any.
+  Reading LLM phrasings first contaminates the human author's own phrasing.
+- Layer 2 audits run separately per stratum, so contamination rates stay
+  comparable rather than pooled.
+- RAGAS results are reported per stratum. The human/LLM delta becomes a measured
+  number rather than an assumed bias.
+
+The point of the field is to make the bias **measurable**, not to hide it.
 
 ## Distribution target
 

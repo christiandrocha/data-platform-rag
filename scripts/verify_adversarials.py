@@ -32,7 +32,12 @@ import yaml
 
 # The indexed file set. Anything outside this is not corpus and must not be
 # grepped — see the module docstring.
-IN_CORPUS_SUBPATHS = ("docs/adr", "README.md", "contracts", "macros")
+#
+# `dbt/macros`, not `macros`: neither repo has a top-level macros/ directory, and
+# a non-existent subpath is skipped silently, so the original constant covered
+# zero macro files without ever erroring. Scoping to dbt/macros also excludes
+# dbt/dbt_packages/, which is vendored third-party code and never indexed.
+IN_CORPUS_SUBPATHS = ("docs/adr", "README.md", "contracts", "dbt/macros")
 
 GOLDEN_SET = Path("docs/golden-set/evaluation_questions.yml")
 INVENTORY = Path("docs/golden-set/corpus_inventory.yml")
@@ -51,6 +56,21 @@ def corpus_projects() -> list[str]:
     inventory = yaml.safe_load(INVENTORY.read_text())
     return sorted(k for k in inventory if k not in _NON_PROJECT_KEYS)
 
+
+def resolve_corpus_dir(explicit: Path | None) -> Path | None:
+    """Canonical location is /tmp/dpr-corpus-*/; an explicit path overrides it.
+
+    CI runs on a GitHub Actions runner with no ~/Documents, so /tmp is the only
+    location that works in both environments and is therefore the default. A
+    local override buys iteration speed at the cost of reproducibility, which is
+    an acceptable trade for dev and not for CI.
+    """
+    if explicit is not None:
+        return explicit.expanduser()
+    matches = sorted(Path("/tmp").glob("dpr-corpus-*"))
+    if not matches:
+        return None
+    return matches[-1]
 
 def in_corpus_files(repo_root: Path) -> list[Path]:
     """Every indexed file under one corpus repo."""
@@ -82,22 +102,28 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--corpus-dir",
-        required=True,
         type=Path,
-        help="Directory containing both corpus repo clones as subdirectories.",
+        default=None,
+        help="Corpus clones root. Defaults to the newest /tmp/dpr-corpus-* (canonical); "
+             "pass a path to override for local dev.",
     )
     args = parser.parse_args()
 
-    if not args.corpus_dir.is_dir():
-        print(f"ERROR: --corpus-dir {args.corpus_dir} is not a directory")
+    corpus_dir = resolve_corpus_dir(args.corpus_dir)
+    if corpus_dir is None:
+        print("ERROR: no /tmp/dpr-corpus-* found. Run `make index-corpus`, or pass "
+              "--corpus-dir for local dev.")
+        return 1
+    if not corpus_dir.is_dir():
+        print(f"ERROR: --corpus-dir {corpus_dir} is not a directory")
         return 1
 
     projects = corpus_projects()
     repos = []
     for name in projects:
-        repo = args.corpus_dir / name
+        repo = corpus_dir / name
         if not repo.is_dir():
-            print(f"ERROR: corpus repo {name!r} not found under {args.corpus_dir}")
+            print(f"ERROR: corpus repo {name!r} not found under {corpus_dir}")
             return 1
         repos.append(repo)
 

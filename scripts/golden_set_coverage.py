@@ -32,10 +32,15 @@ INVENTORY = Path("docs/golden-set/corpus_inventory.yml")
 _NON_PROJECT_KEYS = {"seed", "verified_against_clone"}
 
 
-def load_inventory() -> tuple[int, dict[str, list[str]]]:
+def load_inventory(kind: str = "adrs") -> tuple[int, dict[str, list[str]]]:
+    """Read the seed and one unit class from the inventory.
+
+    `kind` is "adrs" (coverage units for decision questions) or "architecture"
+    (README sections, contracts, dbt macros — units for architecture questions).
+    """
     raw = yaml.safe_load(INVENTORY.read_text())
     seed = raw["seed"]
-    projects = {k: v["adrs"] for k, v in raw.items() if k not in _NON_PROJECT_KEYS}
+    projects = {k: v[kind] for k, v in raw.items() if k not in _NON_PROJECT_KEYS}
     return seed, projects
 
 
@@ -72,20 +77,67 @@ def cited(golden_set: list[dict]) -> dict[tuple[str, str], list[str]]:
     return out
 
 
+def comparison_pairs(seed: int) -> list[tuple[tuple[str, str], tuple[str, str]]]:
+    """Deterministic cross-project ADR pairs for `comparison` questions.
+
+    Pairing is positional within the seeded shuffle, never topical. An LLM
+    selecting *topically related* pairs would be shaping the subject matter of a
+    question, which ADR-011 Commitment 1 reserves to the human author; a seeded
+    positional pair is the same kind of deterministic prompt that `--next` gives
+    for a single ADR. The author judges whether a pair is worth comparing and
+    skips to the next if not.
+    """
+    _, projects = load_inventory("adrs")
+    names = sorted(projects)
+    rng = random.Random(seed)
+    shuffled = {}
+    for name in names:
+        adrs = list(projects[name])
+        rng.shuffle(adrs)
+        shuffled[name] = adrs
+    n = min(len(shuffled[name]) for name in names)
+    return [((names[0], shuffled[names[0]][i]), (names[1], shuffled[names[1]][i]))
+            for i in range(n)]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--next", action="store_true", help="Print the next uncovered ADR and exit 0"
     )
+    parser.add_argument(
+        "--next-architecture", action="store_true",
+        help="Print the next uncovered architecture unit (README section, contract, macro)"
+    )
+    parser.add_argument(
+        "--next-comparison-pair", action="store_true",
+        help="Print the next cross-project ADR pair not yet used by a comparison question"
+    )
     args = parser.parse_args()
 
-    seed, projects = load_inventory()
+    if args.next_comparison_pair:
+        golden = yaml.safe_load(GOLDEN_SET.read_text())
+        used = {(s["project"], s["path"])
+                for q in golden if q.get("intent") == "comparison"
+                for s in (q.get("expected_source_paths") or [])}
+        seed_only, _ = load_inventory("adrs")
+        for i, (left, right) in enumerate(comparison_pairs(seed_only), start=1):
+            if left not in used and right not in used:
+                print(f"next comparison pair [{i}]")
+                print(f"  {left[0]:<24} {left[1]}")
+                print(f"  {right[0]:<24} {right[1]}")
+                return 0
+        print("✓ every seeded pair already has a comparison question")
+        return 0
+
+    kind = "architecture" if args.next_architecture else "adrs"
+    seed, projects = load_inventory(kind)
     order = walk_order(seed, projects)
     coverage = cited(yaml.safe_load(GOLDEN_SET.read_text()))
 
     uncovered = [(p, a) for (p, a) in order if not coverage.get((p, a))]
 
-    if args.next:
+    if args.next or args.next_architecture:
         if not uncovered:
             print("✓ every inventory ADR is covered — nothing left to author")
             return 0

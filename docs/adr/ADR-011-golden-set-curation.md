@@ -63,6 +63,27 @@ already this commitment's assigned job; asking the human author to also do it
 through hand-written probes would duplicate work the ADR has explicitly
 delegated to the model.
 
+**When retreat A3 is invoked, provenance becomes mandatory.** A3 — the
+pre-approved pragmatic retreat in which an LLM proposes `architecture` questions
+while a human writes everything else — requires a `provenance: human | llm` field
+on every question before a single LLM-proposed question is written.
+Human-written and LLM-proposed questions are audited separately under Layer 2,
+and reported separately in RAGAS.
+
+The point of A3 is to make the bias **measurable**, not to hide it. Without
+provenance the two populations are indistinguishable after the fact, and the
+retreat silently becomes the thing Commitment 1 exists to prevent. With it, the
+delta between human- and LLM-authored Context Recall is a measured number. If
+that delta is large, it earns a new known gap here or its own ADR on correction
+methodology.
+
+**Human questions are written and committed before the LLM proposes any.** The
+reverse order compromises the anti-contamination discipline of this commitment: a
+human author who has just read LLM phrasings imports their patterns
+unconsciously, and the contamination then reaches the questions this commitment
+was meant to keep clean. The ordering constraint is not politeness about who goes
+first — it is the only thing preventing A3 from contaminating the human half too.
+
 **Layer 2 output is advisory evidence for a human decision, not consensus.** The
 author remains the decision-maker and may disagree with Opus. But disagreement
 must be documented in the same dev log entry, with reasoning — in the form

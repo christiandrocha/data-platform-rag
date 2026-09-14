@@ -6,8 +6,15 @@ from pathlib import Path
 
 import yaml
 
-REQUIRED_FIELDS = {"id", "intent", "question", "expected_answer",
+REQUIRED_FIELDS = {"id", "provenance", "intent", "question", "expected_answer",
                    "expected_source_paths"}
+
+# ADR-011 Commitment 1: all questions are human-authored. `llm` exists only for
+# retreat A3, where an LLM proposes architecture questions. The field is
+# mandatory either way — without it the two populations are indistinguishable
+# after the fact, and the retreat silently becomes the thing the commitment
+# exists to prevent.
+VALID_PROVENANCE = {"human", "llm"}
 
 # Required on out-of-scope questions only; rejected on any other intent.
 ADVERSARIAL_FIELDS = {"contamination_probes", "grep_verified"}
@@ -169,6 +176,8 @@ def main() -> int:
         unknown = set(q.keys()) - REQUIRED_FIELDS - ADVERSARIAL_FIELDS
         if unknown:
             errors.append(f"[{i}] unknown fields: {sorted(unknown)}")
+        if q.get("provenance") not in VALID_PROVENANCE:
+            errors.append(f"[{i}] invalid provenance: {q.get('provenance')!r}")
         if q.get("intent") not in VALID_INTENTS:
             errors.append(f"[{i}] invalid intent: {q.get('intent')!r}")
         if q.get("id") in seen_ids:
@@ -188,7 +197,9 @@ def main() -> int:
         return 1
 
     n_fallback = sum(1 for q in data if should_fallback(q))
-    print(f"✓ {len(data)} questions valid ({n_fallback} expect the fallback)")
+    by_prov = Counter(q.get("provenance") for q in data)
+    prov = ", ".join(f"{k}={v}" for k, v in sorted(by_prov.items()) if k)
+    print(f"✓ {len(data)} questions valid ({n_fallback} expect the fallback) [{prov}]")
     return 0
 
 

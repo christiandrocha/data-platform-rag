@@ -5,8 +5,19 @@
 # corpus-indexing BUILD compares this file against a live clone.
 #
 # Coverage cannot be derived from expected_source_paths alone: that tells you
-# which ADRs ARE cited, never which exist and are missing — the only thing the
+# which units ARE cited, never which exist and are missing — the only thing the
 # check exists to find.
+#
+# Two unit classes:
+#   adrs          — one ADR file, the coverage unit for `decision` questions
+#   architecture  — README `##` sections, YAML contracts, dbt macros; the
+#                   coverage units for `architecture` questions
+#
+# The architecture list was generated from a clone on 2026-09-14 and is
+# hand-maintained from here. It must be complete BEFORE authoring starts: ADR-011
+# fixes the walk-order seed as immutable, so units added mid-curation can only be
+# appended to the end of the order, which defeats the interleaving they were
+# meant to join.
 
 # Seed for the authoring walk order (ADR-011, "Authoring order").
 # IMMUTABLE for the life of this golden set generation. Re-shuffling mid-curation
@@ -30,6 +41,32 @@ sdd-kafka-snowflake-2:
     - docs/adr/0028_record_metadata_as_watermark.md
     - docs/adr/0029_snowpipe_streaming_as_the_ingestion_path.md
     - docs/adr/0030_avro_and_schema_registry_as_the_contract.md
+  architecture:
+    - README.md#TL;DR
+    - README.md#The Problem
+    - README.md#Stack
+    - README.md#Status
+    - README.md#What works, and what is next
+    - README.md#Architecture
+    - README.md#Domain Map (10 domains)
+    - README.md#Engineering decisions and tradeoffs
+    - README.md#Layered modeling
+    - README.md#Cost governance
+    - README.md#Data quality
+    - README.md#Repository layout
+    - README.md#Running it
+    - README.md#Snowflake scripts
+    - README.md#Security
+    - README.md#CI/CD
+    - README.md#Known gaps and unverified claims
+    - README.md#Methodology — AgentSpec SDD
+    - README.md#What Evolved from sdd-kafka-snowflake
+    - README.md#Interview Cheat Sheet
+    - README.md#License
+    - README.md#Author
+    - dbt/macros/generate_schema_name.sql
+    - dbt/macros/get_table_config.sql
+    - dbt/macros/resolve_cdc.sql
 
 sdd-kafka-databricks:
   adrs:
@@ -42,3 +79,41 @@ sdd-kafka-databricks:
     - docs/adr/007_pipeline_unification.md
     - docs/adr/008_delete_handling.md
     - docs/adr/009_naming_standardization.md
+
+  architecture:
+    - README.md#TL;DR
+    - README.md#The Problem
+    - README.md#Architecture
+    - README.md#Stack
+    - README.md#Engineering Decisions & Tradeoffs
+    - README.md#Data Contracts — The Differentiator
+    - README.md#Unity Catalog Structure
+    - README.md#Domain Map (20 tables)
+    - README.md#How to Run
+    - README.md#Methodology — AgentSpec SDD
+    - README.md#What Evolved from sdd-kafka-snowflake
+    - README.md#Next Steps
+    - README.md#Interview Cheat Sheet
+    - README.md#License
+    - README.md#Author
+    - contracts/driver_shifts.yml
+    - contracts/drivers.yml
+    - contracts/gps_events.yml
+    - contracts/inventory.yml
+    - contracts/menu_sections.yml
+    - contracts/order_items.yml
+    - contracts/order_status.yml
+    - contracts/orders.yml
+    - contracts/payment_events.yml
+    - contracts/payments.yml
+    - contracts/products.yml
+    - contracts/ratings.yml
+    - contracts/receipts.yml
+    - contracts/recommendations.yml
+    - contracts/restaurants.yml
+    - contracts/routes.yml
+    - contracts/search_events.yml
+    - contracts/support_tickets.yml
+    - contracts/users.yml
+    - contracts/users_mongo.yml
+    - contracts/users_mssql.yml

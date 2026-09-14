@@ -246,3 +246,116 @@ Carlo, Atlan, Collibra, DuckDB.
 
 All greps are point-in-time. `scripts/reverify_adversarials.py` (ADR-011) makes
 this durable by re-running as a blocking precondition of every eval.
+
+
+---
+
+## 11. Audit cost arithmetic corrected — $0.07 → ~$2.10
+
+**Status**: CORRECTED 2026-09-14
+**Same pattern as finding #6** ($0.0076 → $0.0083): a supplied figure was
+recomputed rather than copied, and the discrepancy recorded rather than erased.
+
+The BUILD plan estimated ~$0.07 total for five Layer 2 audits at questions 10,
+20, 30, 40 and 50. Those five passes audit 10 + 20 + 30 + 40 + 50 = **150
+question-audits**, not 50. At the ADR-011 estimate of ~$0.014 per question that
+is **~$2.10**, roughly 30x the figure given.
+
+The decision is unaffected — $2.10 is still negligible — but the number in the
+plan was wrong by an order of magnitude and would have propagated into
+BUILD_REPORT.
+
+**Measured, not estimated**: `scripts/audit_questions.py --dry-run` against the
+current 5-question set reports ~$0.0075 per in-scope question and ~$0.0085 for
+the adversarial — both *below* the ADR-011 estimate, because the starter
+questions cite short sources and adversarial mode scans ADR titles rather than
+full text. Expect the per-question figure to rise as questions cite fuller ADRs.
+Real usage is recorded per run in the audit report footer.
+
+---
+
+## 12. Retreat A3 invoked — LLM proposes architecture questions
+
+**Status**: DECIDED 2026-09-14
+**Trigger**: 11-19h of curation time not available this week.
+
+ADR-011's pre-approved pragmatic retreat is invoked. Human authors the 27
+`decision`, `comparison` and `out-of-scope` questions; an LLM proposes the 18
+`architecture` questions. Four preconditions, all landed before any question is
+written:
+
+1. `provenance: human | llm` is a required field; the 5 starter questions are
+   marked `human`.
+2. Human questions are written and committed **before** the LLM proposes any.
+3. Layer 2 audits are stratified by provenance, every 10 questions within each
+   batch. If the first LLM batch shows systematically worse contamination than
+   the human batch, frequency increases before continuing.
+4. Final RAGAS is reported per stratum. A large human/LLM delta earns a new known
+   gap in ADR-011, or its own ADR on correction methodology.
+
+The purpose of the retreat is a **measurable** bias, not a hidden one. Without
+the four preconditions above, A3 silently becomes the thing Commitment 1 exists
+to prevent.
+
+
+---
+
+## 13. Layer 1 was not grepping macros at all
+
+**Status**: RESOLVED 2026-09-14
+**Raised by**: sizing the architecture inventory for golden-set-curation
+
+`verify_adversarials.py` declared `IN_CORPUS_SUBPATHS = (..., "macros")`. Neither
+corpus repo has a top-level `macros/` directory — the snowflake macros live at
+`dbt/macros/`. A non-existent subpath is skipped silently, so the constant
+covered **zero** macro files while reporting success.
+
+Same shape as the `UNIQUE (source_path, chunk_index)` defect: a wrong path does
+not raise, it just covers nothing, and the gate reports green.
+
+Corrected to `dbt/macros`, which also excludes `dbt/dbt_packages/` — vendored
+third-party macros that are not corpus. Snowflake in-corpus file count went from
+14 to 17.
+
+---
+
+## 14. `--corpus-dir` canonical location — pending implementation
+
+**Status**: DECIDED 2026-09-14, implementation pending `make index-corpus`
+
+Canonical: the newest `/tmp/dpr-corpus-*`, created by `make index-corpus`.
+Override: an explicit `--corpus-dir` (or `CORPUS_DIR=` for make), accepted for
+local dev only.
+
+Rationale: CI runs on a GitHub Actions runner with no `~/Documents`, so `/tmp` is
+the only location that works in both environments. A local override buys
+iteration speed at the cost of reproducibility — acceptable for dev, not for CI.
+
+`verify_adversarials.py` and `audit_questions.py` already implement the default
+and the override. **What does not exist yet is the thing that creates the
+directory**: `make index-corpus` is still a stub, so the canonical path currently
+resolves to nothing and every local run must pass an override. Resolve when
+`corpus-indexing` is built (Feature 2), which is also where the glob-vs-fixed-name
+question gets settled — `dpr-corpus-*` with a timestamp means the newest wins,
+and stale clones are never cleaned up by these scripts.
+
+---
+
+## 15. Human/LLM batch split corrected — 28/17, not 27/18
+
+**Status**: CORRECTED 2026-09-14
+
+The BUILD plan put the split at 27 human / 18 LLM. The existing starter question
+`q003` is `intent: architecture` and human-authored, so only **17** architecture
+questions remain for the LLM batch and **28** for the human batch:
+
+| intent | have | target | remaining | batch |
+|--------|------|--------|-----------|-------|
+| decision | 2 | 22 | 20 | human |
+| architecture | 1 | 18 | 17 | LLM |
+| comparison | 1 | 5 | 4 | human |
+| out-of-scope | 1 | 5 | 4 | human |
+| **total** | **5** | **50** | **45** | **28 human / 17 LLM** |
+
+Matters for BUILD_REPORT and for the stratified RAGAS comparison, where the
+denominator of each stratum has to be right.

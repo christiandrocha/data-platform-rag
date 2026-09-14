@@ -9,6 +9,12 @@ import yaml
 REQUIRED_FIELDS = {"id", "intent", "question", "expected_answer",
                    "expected_source_paths"}
 
+# Required on out-of-scope questions only; rejected on any other intent.
+ADVERSARIAL_FIELDS = {"contamination_probes", "grep_verified"}
+# ADR-011 requires at least one probe. Two or more is the curation
+# recommendation, deliberately not enforced here.
+MIN_PROBES = 1
+
 # `hybrid` is deliberately absent. It is a valid runtime value of
 # contracts.Intent — the classifier's semantic fallback when a query resolves to
 # no target category — but it is not a category questions are authored against.
@@ -88,6 +94,39 @@ def check_coherence(i: int, q: dict, errors: list[str]) -> None:
             errors.append(f"[{i}] in-scope question needs at least one expected_source_paths entry")
 
 
+def check_adversarial_fields(i: int, q: dict, errors: list[str]) -> None:
+    """Out-of-scope questions declare contamination probes; others must not.
+
+    A probe is a phrase that, if it appears in the corpus, costs the question its
+    adversarial status. Per ADR-011 these are author-declared rather than derived:
+    every heuristic for extracting them either false-positives on common terms or
+    needs a non-deterministic model. This check enforces their presence and shape;
+    scripts/verify_adversarials.py does the greping.
+    """
+    where = f"[{i}]"
+    present = ADVERSARIAL_FIELDS & set(q.keys())
+    if not should_fallback(q):
+        if present:
+            errors.append(f"{where} {sorted(present)} allowed only on out-of-scope questions")
+        return
+
+    missing = ADVERSARIAL_FIELDS - set(q.keys())
+    if missing:
+        errors.append(f"{where} out-of-scope question missing: {sorted(missing)}")
+
+    probes = q.get("contamination_probes")
+    if probes is None:
+        return
+    if not isinstance(probes, list):
+        errors.append(f"{where} contamination_probes must be a list")
+        return
+    if len(probes) < MIN_PROBES:
+        errors.append(f"{where} needs at least {MIN_PROBES} contamination_probe(s)")
+    for j, probe in enumerate(probes):
+        if not isinstance(probe, str) or not probe.strip():
+            errors.append(f"{where}.contamination_probes[{j}] must be a non-empty string")
+
+
 def check_distribution(data: list, errors: list[str], warnings: list[str]) -> None:
     """Enforce 22/18/5/5 once the set is full; report progress until then."""
     counts = Counter(q.get("intent") for q in data if isinstance(q, dict))
@@ -127,7 +166,7 @@ def main() -> int:
         missing = REQUIRED_FIELDS - set(q.keys())
         if missing:
             errors.append(f"[{i}] missing fields: {missing}")
-        unknown = set(q.keys()) - REQUIRED_FIELDS
+        unknown = set(q.keys()) - REQUIRED_FIELDS - ADVERSARIAL_FIELDS
         if unknown:
             errors.append(f"[{i}] unknown fields: {sorted(unknown)}")
         if q.get("intent") not in VALID_INTENTS:
@@ -137,6 +176,7 @@ def main() -> int:
         seen_ids.add(q.get("id"))
         check_sources(i, q, errors)
         check_coherence(i, q, errors)
+        check_adversarial_fields(i, q, errors)
 
     check_distribution(data, errors, warnings)
 

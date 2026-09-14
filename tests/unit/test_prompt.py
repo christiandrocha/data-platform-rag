@@ -1,6 +1,10 @@
 """Tests for the system prompt."""
 
-from data_platform_rag.generation.prompt import FALLBACK_MESSAGE, SYSTEM_PROMPT, SYSTEM_PROMPT_VERSION
+from data_platform_rag.generation.prompt import (
+    FALLBACK_MESSAGE,
+    SYSTEM_PROMPT,
+    SYSTEM_PROMPT_VERSION,
+)
 
 
 def test_prompt_is_versioned():

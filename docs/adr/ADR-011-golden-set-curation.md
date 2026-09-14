@@ -52,6 +52,29 @@ rather than a cheaper model for the same reason: this is the judgment task the
 mechanical checks cannot perform, and $0.55 saved per pass is not a reason to put
 a weaker judge on the instrument that validates everything else.
 
+**The auditor's scope includes adversarial questions.** It is not limited to
+in-scope grounding. For an `intent: out-of-scope` question it additionally asks:
+*does the corpus discuss this topic in different words?* That makes the auditor
+the semantic safety net for Layer 2 of the adversarial verification below. Cost
+is ~$0.05 per adversarial, run on demand.
+
+This placement is deliberate rather than convenient. Detecting paraphrase is
+already this commitment's assigned job; asking the human author to also do it
+through hand-written probes would duplicate work the ADR has explicitly
+delegated to the model.
+
+**Layer 2 output is advisory evidence for a human decision, not consensus.** The
+author remains the decision-maker and may disagree with Opus. But disagreement
+must be documented in the same dev log entry, with reasoning — in the form
+*"Opus flagged X as paraphrastic contamination; author considers X semantically
+distinct because Y."*
+
+This makes disagreement explicit and auditable rather than silent. An advisory
+signal that can be ignored without trace is not a safety net; it is a formality
+that will be skipped under deadline. Writing down *why* the model was overruled
+is also the only way a later reader can tell a considered override from an
+unread report.
+
 ### Commitment 2 — The golden set is an instrument, and it has a change policy.
 
 Once ADR-008 records a baseline, the set is frozen with respect to that baseline.
@@ -162,6 +185,82 @@ Section 7 requires that metric at 100%.
 Each out-of-scope question records `grep_verified: <date>` so the check is
 durable rather than a one-time act of diligence.
 
+Every out-of-scope question declares `contamination_probes: list[str]`: the exact
+phrases that, if present in the corpus, would cost the question its adversarial
+status. The validator requires at least one; two or more is the curation
+recommendation, since one probe is usually just the question's subject noun.
+
+The grep is **scoped to the indexed file set** (`docs/adr/`, `README.md`,
+`contracts/`, `macros/`), never the clone root, and **case-sensitive**. Both were
+decided on evidence: probe `Flink` matches 5 files in the `sdd-kafka-databricks`
+clone and 0 in-corpus (all five are `.claude/` internals that are never indexed);
+and `sdd-kafka-databricks/README.md:31` reads "Kafka streams, MongoDB documents"
+— generic lowercase prose that a case-insensitive probe for "Kafka Streams" would
+match, failing q005 over an unrelated phrase.
+
+### Worked examples — what each layer actually catches
+
+**Layer 1 earning its place (verified).** An adversarial about Delta Live Tables
+would declare the probe `"Delta Live Tables"`. That probe matches
+`sdd-kafka-databricks/README.md:310` ("Databricks Delta Live Tables (DLT)
+migration"), an indexed file. Layer 1 fires, the question is rejected before any
+model is invoked, and the cost is milliseconds. This is the case the repo's own
+README originally proposed as a model adversarial — the cheap layer catches it
+outright.
+
+**Why Layer 1 is nevertheless not sufficient.** DLT is the former name of
+Lakeflow Declarative Pipelines. This corpus happens to use *both* names — the old
+one at `README.md:310`, the new one at `docs/adr/006_lakeflow_migration.md:1` —
+so probing either catches it. That is luck, not design. Had the corpus used only
+the new name while the author probed the old one, Layer 1 would have been blind
+to a topic the corpus discusses at length. A rebrand is precisely the class of
+contamination a literal matcher cannot see, and it is why Layer 2 exists rather
+than being an optional extra.
+
+**Layer 2 catching what Layer 1 cannot (constructed).**
+
+> Author declares the probe `"Debezium catches up"`.
+> The corpus says `"Debezium is still catching up"`.
+> **Layer 1 passes** — the literal grep is negative.
+> **Layer 2 catches it** — Opus recognises the paraphrase.
+> The human decides whether to substitute the question.
+
+*(Constructed, not drawn from the corpus. Grep-verified 2026-09-14: "Debezium
+catches up", "Debezium is still catching up", "catching up" and "catches up" all
+return 0 in-corpus matches, so the example is safe to use as an example, per the
+illustrative-examples rule in Commitment 3.)*
+
+### Recovery workflow — when Layer 1 fails a run
+
+A red gate has two possible causes, and conflating them is how Layer 1 becomes
+theatre: an author who treats every failure as a bad probe will widen and narrow
+probes until nothing matches, leaving a gate that passes by construction.
+
+**Scenario A — the contamination is real.** The question has lost its adversarial
+status; the corpus can answer it.
+
+- The author substitutes the question, or re-classifies its `intent` to whatever
+  the corpus actually supports.
+- The commit message references the Layer 1 output that triggered the failure.
+- Probes for the new or re-classified question are written from scratch. They are
+  never inherited from the question that failed.
+
+**Scenario B — the probe was too broad.** The question is still adversarial; the
+probe over-captures.
+
+- The author runs `make audit-adversarials q=<id>` — the Layer 2 Opus audit.
+- The Opus output is attached **verbatim** to a dev log entry.
+- If Opus confirms the probe over-captures → adjust the probe; the commit
+  references that dev log entry.
+- If Opus instead finds semantic contamination → this was Scenario A. Restart
+  there.
+
+**Narrowing a probe is never a unilateral act.** Scenario B requires a Layer 2
+run and a dev log entry before the probe changes. That is the structural defence
+against quietly editing probes until the gate stops firing: the cheap path out of
+a red build costs a model call and a written record, which is more expensive than
+fixing the question honestly.
+
 ### Re-verification before every eval — a blocking gate, scoped to adversarials
 
 A grep verifies absence *at a point in time*. If a corpus repo later gains an ADR
@@ -169,7 +268,7 @@ mentioning Flink, q005 becomes silently invalid: it starts failing
 `fallback_accuracy` with no indication that the question, not the system, is what
 broke.
 
-**`scripts/reverify_adversarials.py` runs as a precondition of every evaluation
+**`scripts/verify_adversarials.py` runs as a precondition of every evaluation
 run, and a positive match fails the run.** Not a warning.
 
 This follows the severity convention the corpus itself established in
@@ -187,7 +286,7 @@ constitute a change of semantic status, from "unanswerable" to "answerable".
 Narrowing the gate to that category keeps the blocking surface confined to where
 the failure logic is falsifiable.
 
-**Precondition on ADR-008**: ADR-008 invokes `reverify_adversarials.py` as a
+**Precondition on ADR-008**: ADR-008 invokes `verify_adversarials.py` as a
 precondition of `make eval` and `make eval-ci`, and treats a non-zero exit as a
 failed run. This is a decision taken here, not a question deferred to ADR-008 —
 the evidence needed to decide it is already available.
@@ -255,6 +354,6 @@ the evidence needed to decide it is already available.
 - [ ] All 5 adversarial questions carry `grep_verified` with a date.
 - [ ] Every illustrative example in Commitment 3 is either grep-clean or
       annotated as an illustrative match.
-- [ ] `scripts/reverify_adversarials.py` exits non-zero on a match and is wired
+- [ ] `scripts/verify_adversarials.py` exits non-zero on a match and is wired
       as a precondition of `make eval` and `make eval-ci`.
 - [ ] Evaluation runs record the git SHA of `evaluation_questions.yml`.

@@ -50,5 +50,9 @@
   question: "What is Christian's opinion on Apache Flink versus Kafka Streams?"
   expected_answer: null
   expected_source_paths: []
+  contamination_probes:
+    - "Apache Flink"
+    - "Kafka Streams"
+  grep_verified: 2026-09-14
 
 # TODO(BUILD): expand to 50 questions following README.md distribution

@@ -15,7 +15,6 @@ from data_platform_rag.contracts import (
     RetrievedChunk,
 )
 
-
 # ─── ChunkMetadata ───────────────────────────────────────────────────────────
 
 

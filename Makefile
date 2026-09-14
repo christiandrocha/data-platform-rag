@@ -62,6 +62,19 @@ eval-ci:
 
 golden-set-check:
 	python scripts/validate_golden_set.py
+	python scripts/golden_set_coverage.py
+
+golden-set-next:
+	@python scripts/golden_set_coverage.py --next
+
+# Layer 1 of ADR-011: literal contamination probes. Blocking precondition of eval.
+# CORPUS_DIR must hold both corpus clones as subdirectories.
+verify-adversarials:
+	python scripts/verify_adversarials.py --corpus-dir $(CORPUS_DIR)
+
+# Layer 2 of ADR-011: Opus semantic audit of one adversarial. Advisory.
+audit-adversarials:
+	python scripts/audit_questions.py --adversarial --question $(q) --corpus-dir $(CORPUS_DIR)
 
 langfuse-check:
 	python -c "from data_platform_rag.observability.langfuse_client import get_client; c = get_client(); print('Langfuse client type:', type(c).__name__)"

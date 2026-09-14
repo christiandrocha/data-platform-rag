@@ -1,0 +1,44 @@
+# Corpus inventory — the ADRs that golden-set coverage is measured against.
+#
+# Hand-maintained, and therefore capable of going stale if a corpus repo gains an
+# ADR. That risk is recorded in ADR-011 rather than solved; a check during
+# corpus-indexing BUILD compares this file against a live clone.
+#
+# Coverage cannot be derived from expected_source_paths alone: that tells you
+# which ADRs ARE cited, never which exist and are missing — the only thing the
+# check exists to find.
+
+# Seed for the authoring walk order (ADR-011, "Authoring order").
+# IMMUTABLE for the life of this golden set generation. Re-shuffling mid-curation
+# destroys the anti-bias property the seed exists to provide. A new seed is
+# permitted only when a set is rebuilt from scratch, recorded with the reason.
+seed: 20260914
+
+verified_against_clone: 2026-09-14
+
+sdd-kafka-snowflake-2:
+  adrs:
+    - docs/adr/0018_dedicated_postgres_for_dagster_storage.md
+    - docs/adr/0019_streams_and_triggered_tasks_as_the_gate.md
+    - docs/adr/0020_resource_monitor_canonicalization.md
+    - docs/adr/0021_kafka_connector_v4_schematization.md
+    - docs/adr/0022_tier_1_ingestion_scope.md
+    - docs/adr/0024_sensor_without_global_watermark.md
+    - docs/adr/0025_bronze_is_append_only.md
+    - docs/adr/0026_gold_aggregation_categories.md
+    - docs/adr/0027_severity_convention.md
+    - docs/adr/0028_record_metadata_as_watermark.md
+    - docs/adr/0029_snowpipe_streaming_as_the_ingestion_path.md
+    - docs/adr/0030_avro_and_schema_registry_as_the_contract.md
+
+sdd-kafka-databricks:
+  adrs:
+    - docs/adr/001_databricks_vs_snowflake.md
+    - docs/adr/002_smt_and_bronze.md
+    - docs/adr/003_parametrized_notebooks.md
+    - docs/adr/004_liquid_clustering.md
+    - docs/adr/005_gold_dimension_join_integrity.md
+    - docs/adr/006_lakeflow_migration.md
+    - docs/adr/007_pipeline_unification.md
+    - docs/adr/008_delete_handling.md
+    - docs/adr/009_naming_standardization.md

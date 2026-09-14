@@ -48,6 +48,20 @@ CREATE INDEX idx_chunks_collection_project
 CREATE INDEX idx_chunks_topic ON chunks (topic) WHERE topic IS NOT NULL;
 CREATE INDEX idx_chunks_adr_id ON chunks (adr_id) WHERE adr_id IS NOT NULL;
 
+-- GIN on the keywords array, supporting the overlap operator (&&). Partial,
+-- matching the two indexes above: NULL means extraction did not run, and those
+-- rows can never satisfy an overlap predicate.
+-- Reserved for a future pre-filter; no v1 query uses it yet. It is created now
+-- so that enabling the pre-filter is a retrieval-code change only, with no
+-- migration and no reindex.
+CREATE INDEX idx_chunks_keywords_gin
+    ON chunks
+    USING gin (keywords)
+    WHERE keywords IS NOT NULL;
+
+COMMENT ON INDEX idx_chunks_keywords_gin IS
+    'Array overlap (&&) pre-filter on extracted noun phrases. Unused in v1 retrieval; see ADR-002 and contracts.py::ChunkMetadata.';
+
 -- ============================================================================
 -- Query log indexes (analytics + fallback ratio computation)
 -- ============================================================================

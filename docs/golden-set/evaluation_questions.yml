@@ -27,7 +27,7 @@
   should_fallback: false
 
 - id: q004
-  intent: hybrid
+  intent: comparison
   question: "What are the main differences in how the Snowflake and Databricks projects handle CDC schema evolution?"
   expected_answer: "Snowflake uses Confluent Schema Registry + Avro + CONFIG.TABLE_METADATA. Databricks uses YAML data contracts validated by test_contracts.py in CI. Both enforce backward-compatible evolution but through different mechanisms."
   expected_source_paths:

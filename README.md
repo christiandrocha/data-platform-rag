@@ -38,7 +38,7 @@ Intent classifier (LLM-lite, four categories: decision / architecture / comparis
     │        └──► Top-20 candidates
     │
     ▼
-Reranker (bge-reranker-base cross-encoder, top-5 selection)
+Reranker (bge-reranker-base cross-encoder, top-3 selection)
     │
     ├──► Below-threshold check ──► Fallback: "Out of scope — ask on LinkedIn"
     │
@@ -61,12 +61,19 @@ Every stage traced in Langfuse. Every query logged in Postgres.
 | Sparse search | PostgreSQL GIN + tsvector + ts_rank_cd | Hybrid retrieval without another dependency. |
 | Embedding | `bge-small-en-v1.5` | 384-dim, open-source, strong on technical text. Benchmarked during BUILD. |
 | Reranker | `bge-reranker-base` | Cross-encoder, ~100ms latency, measurable RAGAS lift. |
-| LLM | Claude Sonnet (Anthropic API) | Quality on English technical text, cost per query <$0.005. |
+| LLM | Claude Sonnet 4.6 (Anthropic API) | Quality on English technical text. Estimated ~$0.008 per non-fallback query.[^cost] |
 | Contracts | pydantic v2 | All inter-module boundaries — config, chunk metadata, LLM output, RAGAS reports. |
 | Observability | Langfuse (cloud free tier) | Traces every query, tracks Claude cost, receives RAGAS scores. |
 | Evaluation | RAGAS | Faithfulness, context precision, answer relevance, context recall. |
 | UI | Streamlit | Free hosting, deploys from GitHub. |
 | Methodology | AgentSpec/SDD | Same discipline as the two source projects. |
+
+[^cost]: ~1750 input + ~200 output tokens per query (top-3 context) at Claude
+    Sonnet 4.6 pricing. Meets the `<$0.01` non-negotiable of
+    `docs/PRE_BUILD_VALIDATION.md` Section 7 with headroom for prompt drift.
+    Full per-direction arithmetic in
+    [.claude/kb/langfuse/cost-tracking.md](.claude/kb/langfuse/cost-tracking.md).
+    Estimate until `make eval-ci` produces measured Langfuse cost data.
 
 ---
 
@@ -142,6 +149,7 @@ Explicitly deferred until v1 is live and measured. Each carries a trigger condit
 | Continuous ingestion (webhook) | Source projects gain regular contributors |
 | Redis response cache | Query volume >500/day |
 | Active alerts (PagerDuty-style) | Product becomes production-critical |
+| Performance tests (p50/p95/p99, throughput) | Query volume or corpus size grows past the point where RAGAS + the `sql/99_verify.sql` EXPLAIN ANALYZE baseline cover the real regression risk |
 | Cohere Rerank (paid) | Context Precision plateaus below 0.85 |
 | Full BM25 via pg_search extension | ts_rank_cd sparse quality proves inadequate |
 | Corpus expansion to more platform components | Additional reference projects added to the platform |

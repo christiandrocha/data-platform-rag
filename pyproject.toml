@@ -21,7 +21,9 @@ dependencies = [
 
 [project.optional-dependencies]
 observability = [
-    "langfuse>=2.50",
+    # Pinned to 2.x: the KB and observability/langfuse_client.py are written
+    # against the v2 trace()/span()/generation() API. See dev log 2026-09-14.
+    "langfuse>=2.50,<3.0",
 ]
 dev = [
     "pytest>=8.0",

@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 Collection = Literal["decisions", "architecture"]
 SourceProject = Literal["sdd-kafka-snowflake-2", "sdd-kafka-databricks"]
 SourceType = Literal["adr", "readme", "contract", "macro", "schema"]
-Intent = Literal["decision", "architecture", "hybrid"]
+Intent = Literal["decision", "architecture", "comparison", "hybrid"]
 ADRStatus = Literal["accepted", "superseded", "resolved", "planned"]
 
 
@@ -34,6 +34,10 @@ class ChunkMetadata(BaseModel):
     adr_id: str | None = None
     topic: str | None = None
     status: ADRStatus | None = None
+    # Noun phrases extracted at index time (regex + stop-word filter, no NER).
+    # Unused by v1 retrieval; enables a `WHERE keywords && ARRAY[...]` pre-filter
+    # later without a contract change. None = not extracted; [] = extracted, empty.
+    keywords: list[str] | None = None
     chunk_index: int = Field(ge=0)
     token_count: int = Field(gt=0)
 

@@ -21,7 +21,7 @@ Trace: "query"
   │
   ├─ Span: "reranking"
   │    input: 20 candidates
-  │    output: top 5 with reranker scores
+  │    output: top 3 with reranker scores
   │    latency: ~150ms
   │
   ├─ Span: "threshold_check"

@@ -35,10 +35,10 @@ LIMIT 20;
 
 | Parameter | Value | Justification |
 |-----------|-------|--------------|
-| dense limit | 20 | Cover-and-rerank pattern, top-5 after rerank |
+| dense limit | 20 | Cover-and-rerank pattern, top-3 after rerank |
 | sparse limit | 20 | Same |
 | RRF k | 60 | Cormack et al. canonical value |
-| final limit | 20 | Feed 20 to reranker, keep top 5 |
+| final limit | 20 | Feed 20 to reranker, keep `settings.rerank_top_k` (currently 3) |
 
 ## When hybrid loses to dense-only
 

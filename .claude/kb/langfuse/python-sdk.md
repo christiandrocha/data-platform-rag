@@ -29,10 +29,10 @@ from langfuse.decorators import observe
 async def answer_query(query: str, session_id: str | None = None) -> AnswerResult:
     intent = await classify_intent(query)
     candidates = await hybrid_search(query, intent.collections)
-    top5 = await rerank(query, candidates)
-    if top5[0].score < settings.fallback_threshold:
+    top_chunks = await rerank(query, candidates)  # settings.rerank_top_k
+    if top_chunks[0].score < settings.fallback_threshold:
         return AnswerResult(text=FALLBACK_MESSAGE, fallback=True, ...)
-    answer = await generate(query, top5)  # @observe(as_type="generation")
+    answer = await generate(query, top_chunks)  # @observe(as_type="generation")
     return AnswerResult(...)
 ```
 

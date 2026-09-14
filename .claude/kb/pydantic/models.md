@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 Collection = Literal["decisions", "architecture"]
 SourceProject = Literal["sdd-kafka-snowflake-2", "sdd-kafka-databricks"]
 SourceType = Literal["adr", "readme", "contract", "macro", "schema"]
-Intent = Literal["decision", "architecture", "hybrid"]
+Intent = Literal["decision", "architecture", "comparison", "hybrid"]
 
 
 class ChunkMetadata(BaseModel):
@@ -26,6 +26,7 @@ class ChunkMetadata(BaseModel):
     adr_id: str | None = None
     topic: str | None = None
     status: Literal["accepted", "superseded", "resolved", "planned"] | None = None
+    keywords: list[str] | None = None
     chunk_index: int = Field(ge=0)
     token_count: int = Field(gt=0)
 

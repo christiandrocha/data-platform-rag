@@ -7,7 +7,7 @@ import yaml
 
 REQUIRED_FIELDS = {"id", "intent", "question", "expected_answer",
                    "expected_source_paths", "should_fallback"}
-VALID_INTENTS = {"decision", "architecture", "hybrid", "out-of-scope"}
+VALID_INTENTS = {"decision", "architecture", "comparison", "out-of-scope"}
 
 
 def main() -> int:

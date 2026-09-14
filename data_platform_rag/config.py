@@ -29,7 +29,7 @@ class Settings(BaseSettings):
 
     # Retrieval
     hybrid_top_k: int = Field(default=20, ge=1, le=100)
-    rerank_top_k: int = Field(default=5, ge=1, le=20)
+    rerank_top_k: int = Field(default=3, ge=1, le=20)
     fallback_threshold: float = Field(default=0.35, ge=0.0, le=1.0)
     hnsw_ef_search: int = Field(default=40, ge=10, le=500)
 

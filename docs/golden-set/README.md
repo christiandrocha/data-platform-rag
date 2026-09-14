@@ -17,8 +17,12 @@ Format: YAML per question in `evaluation_questions.yml`.
       path: docs/adr/ADR-XXXX.md  # Must be in the retrieval top-k
     - project: sdd-kafka-databricks
       path: README.md
-  should_fallback: false          # true only for out-of-scope questions
 ```
+
+There is no `should_fallback` field. Whether a question must fire the fallback
+is **derived** from `intent == "out-of-scope"`. Two fields encoding one fact
+drift apart; a derived one cannot. Consumers call
+`scripts/validate_golden_set.py::should_fallback(q)`.
 
 `project` must be one of the two corpus repos, mirroring
 `data_platform_rag.contracts.SourceProject`. It is mandatory rather than
@@ -55,6 +59,14 @@ vocabularies that happen to share two members.
 ## Curation rules
 
 - Questions must sound natural — no "According to ADR-007..."
-- Adversarial questions should be plausible ("What did Christian decide about
-  Delta Live Tables?" — related but not in corpus)
+- Adversarial questions must be plausible **and verified absent**. Grep every
+  candidate against the in-corpus files of both repos (`docs/adr/`, `README.md`,
+  `contracts/`, `macros/`) before it enters the set. The plausible-looking ones
+  are often present: "Delta Live Tables" was the original example here, and it
+  turns out to be discussed in two databricks ADRs as a rejected alternative —
+  it is a legitimate `decision` question, and would have failed
+  `fallback_accuracy` on every run.
+- Topics verified absent from both corpora on 2026-09-14: Apache Iceberg, Hudi,
+  Flink, Airflow, Great Expectations, Trino, Presto, ClickHouse, Monte Carlo,
+  Atlan, Collibra, DuckDB. Re-verify before use — the corpora change.
 - Update requires an ADR if count exceeds 100 or metric weighting changes

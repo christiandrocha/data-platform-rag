@@ -4,6 +4,10 @@
 # expected_source_paths entries are {project, path} objects. The project is
 # mandatory: the two corpus repos share file names (both have README.md), so a
 # bare path cannot identify a source document.
+#
+# There is no should_fallback field. Whether a question must fire the fallback is
+# derived from intent == "out-of-scope". Two fields encoding one fact drift; the
+# derived form cannot.
 
 - id: q001
   intent: decision
@@ -12,7 +16,6 @@
   expected_source_paths:
     - project: sdd-kafka-snowflake-2
       path: docs/adr/ADR-0029.md
-  should_fallback: false
 
 - id: q002
   intent: decision
@@ -21,7 +24,6 @@
   expected_source_paths:
     - project: sdd-kafka-databricks
       path: docs/adr/ADR-007.md
-  should_fallback: false
 
 - id: q003
   intent: architecture
@@ -32,7 +34,6 @@
       path: docs/adr/ADR-0030.md
     - project: sdd-kafka-snowflake-2
       path: README.md
-  should_fallback: false
 
 - id: q004
   intent: comparison
@@ -43,13 +44,11 @@
       path: docs/adr/ADR-0030.md
     - project: sdd-kafka-databricks
       path: README.md
-  should_fallback: false
 
 - id: q005
   intent: out-of-scope
   question: "What is Christian's opinion on Apache Flink versus Kafka Streams?"
   expected_answer: null
   expected_source_paths: []
-  should_fallback: true
 
 # TODO(BUILD): expand to 50 questions following README.md distribution

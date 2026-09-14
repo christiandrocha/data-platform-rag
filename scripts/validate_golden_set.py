@@ -7,7 +7,12 @@ from pathlib import Path
 import yaml
 
 REQUIRED_FIELDS = {"id", "intent", "question", "expected_answer",
-                   "expected_source_paths", "should_fallback"}
+                   "expected_source_paths"}
+
+# `hybrid` is deliberately absent. It is a valid runtime value of
+# contracts.Intent — the classifier's semantic fallback when a query resolves to
+# no target category — but it is not a category questions are authored against.
+# See PRE_BUILD_VALIDATION.md Section 6 change 3 and docs/golden-set/README.md.
 VALID_INTENTS = {"decision", "architecture", "comparison", "out-of-scope"}
 
 # Mirrors data_platform_rag.contracts.SourceProject.
@@ -22,6 +27,17 @@ TARGET_DISTRIBUTION = {
     "comparison": 5,
     "out-of-scope": 5,
 }
+
+
+def should_fallback(q: dict) -> bool:
+    """Derived, never stored.
+
+    A question expects the fallback if and only if its intent is out-of-scope.
+    Storing this as its own field would encode one fact twice, and the two
+    copies would eventually disagree. Any consumer that needs the boolean
+    computes it here.
+    """
+    return q.get("intent") == "out-of-scope"
 
 
 def check_sources(i: int, q: dict, errors: list[str]) -> None:
@@ -49,6 +65,27 @@ def check_sources(i: int, q: dict, errors: list[str]) -> None:
             errors.append(f"{where} invalid project: {src['project']!r}")
         if "path" in src and not isinstance(src["path"], str):
             errors.append(f"{where} path must be a string")
+
+
+def check_coherence(i: int, q: dict, errors: list[str]) -> None:
+    """An out-of-scope question has no answer and no sources; others need both.
+
+    This replaces the old should_fallback pairing check. With the boolean
+    derived, the remaining invariant is between intent and the answer fields.
+    """
+    expects_fallback = should_fallback(q)
+    answer = q.get("expected_answer")
+    srcs = q.get("expected_source_paths")
+    if expects_fallback:
+        if answer is not None:
+            errors.append(f"[{i}] out-of-scope question must have expected_answer: null")
+        if srcs:
+            errors.append(f"[{i}] out-of-scope question must have no expected_source_paths")
+    else:
+        if not isinstance(answer, str) or not answer.strip():
+            errors.append(f"[{i}] in-scope question needs a non-empty expected_answer")
+        if not srcs:
+            errors.append(f"[{i}] in-scope question needs at least one expected_source_paths entry")
 
 
 def check_distribution(data: list, errors: list[str], warnings: list[str]) -> None:
@@ -90,12 +127,16 @@ def main() -> int:
         missing = REQUIRED_FIELDS - set(q.keys())
         if missing:
             errors.append(f"[{i}] missing fields: {missing}")
+        unknown = set(q.keys()) - REQUIRED_FIELDS
+        if unknown:
+            errors.append(f"[{i}] unknown fields: {sorted(unknown)}")
         if q.get("intent") not in VALID_INTENTS:
             errors.append(f"[{i}] invalid intent: {q.get('intent')!r}")
         if q.get("id") in seen_ids:
             errors.append(f"[{i}] duplicate id: {q['id']!r}")
         seen_ids.add(q.get("id"))
         check_sources(i, q, errors)
+        check_coherence(i, q, errors)
 
     check_distribution(data, errors, warnings)
 
@@ -106,7 +147,8 @@ def main() -> int:
             print(f"  {e}")
         return 1
 
-    print(f"✓ {len(data)} questions valid")
+    n_fallback = sum(1 for q in data if should_fallback(q))
+    print(f"✓ {len(data)} questions valid ({n_fallback} expect the fallback)")
     return 0
 
 

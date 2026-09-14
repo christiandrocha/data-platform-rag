@@ -419,3 +419,55 @@ Recall for it would have been permanently unachievable, because the corpus canno
 supply claims it does not contain. It would have presented as a retrieval bug and
 cost a day of debugging the wrong component. This is precisely the failure mode
 Commitment 2 describes, caught at authoring time where it is cheap.
+
+
+---
+
+## 18. q006 first attempt — process corrective, and an inventory bug that was not there
+
+**Status**: RECORDED 2026-09-14
+**Relates to**: finding #17 (the rejection itself)
+
+**Pattern.** The human wrote q006 with two material grounding defects on the
+first attempt: a framing that presupposed a comparison the ADR never makes
+("Liquid Clustering over traditional partitioning" — the real alternatives are
+ZORDER BY and no clustering, and the string "partitioning" appears in no
+databricks ADR), and two claims absent from the source ("dominate", "shuffle
+penalty", 0 occurrences each). Both were detected by the Layer 2 style audit
+against the cited file. ADR-011 Commitment 1 assumes the human reads the source
+before writing; that step was skipped.
+
+**Process corrective.** The human fetches and reads the source ADR text before
+formulating a question. `--next` output is an **index reference, not a source
+substitute** — it names which unit is due, not what the unit says.
+
+**Not a finding: the suspected inventory bug does not exist.** The incident
+review hypothesised that `corpus_inventory.yml` held presumed filename patterns
+rather than real paths, and that `--next` had therefore reported a file that does
+not exist. The inventory was audited against the filesystem:
+
+```
+ADRs in inventory: 21   present on disk: 21   divergent: 0
+Files on disk absent from the inventory: none
+```
+
+`004_liquid_clustering.md` is the real filename, is what `--next` reported, and
+is what the inventory holds. The hypothesised
+`ADR-004-liquid-clustering-aligned-with-merge-key.md` does not exist in the repo.
+The inventory was generated from `ls` in the first place, not from a pattern.
+
+No regeneration and no re-seed were performed. Recording this explicitly so a
+later reader does not go looking for an inventory defect that was never there —
+and so the immutable-seed invariant is not disturbed to fix a non-problem.
+
+**Two corrections to the incident account**, for the same reason:
+
+- "preserving pruning" was **not** a hallucination. It is supported by the ADR's
+  own wording, "file pruning during MERGE", and the audit reported it as
+  supported.
+- There was no Silver-versus-Gold layer error. The ADR's alignment table covers
+  four `silver.*` tables alongside three `gold.*` ones, so a question about the
+  Silver layer is in scope.
+
+Two real defects, not three, and not the three first proposed. Over-attributing
+errors corrupts the record in the same way under-attributing does.

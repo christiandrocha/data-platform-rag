@@ -195,3 +195,54 @@ whose `project` is outside `SourceProject`. Prose references updated in ADR-007,
 single-repo statement. Nothing in the schema, the ADRs, or the tests exercised
 two repos at once, and no integration test writes a chunk yet. The first test
 that would have caught it is the one `corpus-indexing` has not written.
+
+
+---
+
+## 9. ADR-012 candidate — `rerank_top_k`
+
+**Status**: CANDIDATE — no ADR written, deliberately
+**Raised by**: Phase 0 pendência #6 (cost gate)
+
+Current baseline: `rerank_top_k=3` (chosen pre-emptively during Phase 0 to meet
+the Section 7 cost non-negotiable, see the Phase 0 dev log entry #6). ADR-012
+will supersede this baseline only if RAGAS-measured Context Recall justifies a
+different value.
+
+No ADR is written now. It becomes one during Phase 5 calibration, if and only if
+measurement produces a number that justifies changing the value. Writing it
+earlier would document a guess as a decision.
+
+---
+
+## 10. Adversarial grep verification — record for 2026-09-14
+
+**Status**: RECORDED
+**Rule**: ADR-011, "Adversarial questions are verified absent, never assumed"
+
+Verified against the in-corpus files of both repos (`docs/adr/`, `README.md`,
+`contracts/`, `macros/`) on 2026-09-14:
+
+**Existing adversarial**
+- `q005` — Apache Flink vs Kafka Streams: **0 in-corpus matches. Valid.**
+
+**Verified-absent candidates for future adversarials** (12): Apache Iceberg,
+Hudi, Flink, Airflow, Great Expectations, Trino, Presto, ClickHouse, Monte
+Carlo, Atlan, Collibra, DuckDB.
+
+**Verified PRESENT — rejected as adversarials**
+- `Delta Live Tables` / `DLT` — present in `sdd-kafka-databricks`
+  `docs/adr/001_databricks_vs_snowflake.md:36` and
+  `docs/adr/003_parametrized_notebooks.md:40`, both as a rejected alternative.
+  This was the repo's own suggested example adversarial. It is a legitimate
+  `decision` question and would have failed `fallback_accuracy` on every run.
+- `dagster` — 9 in-corpus files. Correctly so; it is the snowflake orchestrator.
+
+**Illustrative examples in ADR-011 Commitment 3**
+- `1024` — 0 matches, clean.
+- `ADR-9999` — 0 matches; substituted for `ADR-0029`, which matched 2 files.
+- `Debezium` (10 files) and `Unity Catalog` (5 files) — annotated as illustrative
+  matches rather than substituted, per the curation rule in ADR-011.
+
+All greps are point-in-time. `scripts/reverify_adversarials.py` (ADR-011) makes
+this durable by re-running as a blocking precondition of every eval.

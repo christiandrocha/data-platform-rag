@@ -16,5 +16,6 @@ Reversals are documented in-place; superseded ADRs stay in the record.
 | ADR-008 | RAGAS in CI with regression threshold | Planned | — |
 | ADR-009 | Langfuse for LLM observability | Accepted | 2026-09-10 |
 | ADR-010 | Pydantic v2 as the contract language | Accepted | 2026-09-10 |
+| ADR-011 | Golden set curation methodology | Accepted | 2026-09-14 |
 
 **Legend**: Accepted (implemented as decided) · Planned (decision pending BUILD phase) · Superseded · Resolved.

@@ -344,6 +344,11 @@ and stale clones are never cleaned up by these scripts.
 ## 15. Human/LLM batch split corrected — 28/17, not 27/18
 
 **Status**: CORRECTED 2026-09-14
+**Cause**: q003 was counted as `decision`; it is `architecture`.
+**Pattern**: third arithmetic correction of this session, after $0.005 -> $0.0083
+(finding #6) and $0.07 -> $2.10 (finding #11). All three followed the same shape:
+a supplied figure was recomputed rather than copied, and the discrepancy was
+recorded rather than silently replaced.
 
 The BUILD plan put the split at 27 human / 18 LLM. The existing starter question
 `q003` is `intent: architecture` and human-authored, so only **17** architecture
@@ -359,3 +364,58 @@ questions remain for the LLM batch and **28** for the human batch:
 
 Matters for BUILD_REPORT and for the stratified RAGAS comparison, where the
 denominator of each stratum has to be right.
+
+
+---
+
+## 16. Corpus directory must fail loudly when empty or missing
+
+**Status**: RESOLVED 2026-09-14
+
+`resolve_corpus_dir()` in `verify_adversarials.py` and `audit_questions.py` now
+raises on a missing or empty corpus directory rather than proceeding.
+
+An empty corpus directory produces a **false green**: every contamination probe
+finds nothing, Layer 1 reports success, and the contamination the gate exists to
+catch passes through untouched. Same failure class as finding #13
+(`IN_CORPUS_SUBPATHS = "macros"`), where a path matching nothing was skipped in
+silence and the gate still reported green.
+
+The general shape, worth naming because it has now appeared three times in this
+repo: **a wrong path does not raise, it covers nothing, and a check over nothing
+passes.** Any gate that reads files needs an explicit assertion that it actually
+read some.
+
+---
+
+## 17. q006 rejected at grounding audit — first curation rejection
+
+**Status**: RECORDED 2026-09-14
+**Question**: "Why did the Databricks pipeline choose Liquid Clustering over
+traditional partitioning for the Silver layer?"
+
+Passed format, passed coherence checks in the validator, passed the contamination
+threshold (longest verbatim span 4 words, below the 8-word rule). **Failed the
+grounding audit**, which no script performs — it requires reading the cited ADR.
+
+Three defects, verified mechanically against
+`sdd-kafka-databricks/docs/adr/004_liquid_clustering.md`:
+
+1. The question's framing presupposes a comparison the ADR never makes. Its
+   Alternatives Considered are **ZORDER BY** and **no clustering**. The string
+   "partitioning" appears in **no databricks ADR at all**.
+2. `expected_answer` claims "MERGE INTO operations dominate Silver-layer writes"
+   — "dominate" appears 0 times; the ADR never ranks Silver write types.
+3. `expected_answer` claims Liquid Clustering "avoids the shuffle penalty of
+   traditional partitioning" — "shuffle" appears 0 times. This is a named
+   mechanism claim, exactly the class ADR-011 Commitment 3 requires a grounding
+   quote for, and no quote exists because the mechanism is not in the source.
+
+Supported portions: "aligned with the MERGE key" (the ADR's title and Decision)
+and "preserving pruning" ("file pruning during MERGE").
+
+**Why this matters beyond one question**: had q006 entered the set, Context
+Recall for it would have been permanently unachievable, because the corpus cannot
+supply claims it does not contain. It would have presented as a retrieval bug and
+cost a day of debugging the wrong component. This is precisely the failure mode
+Commitment 2 describes, caught at authoring time where it is cheap.

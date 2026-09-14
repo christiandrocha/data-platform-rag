@@ -64,13 +64,39 @@ def resolve_corpus_dir(explicit: Path | None) -> Path | None:
     location that works in both environments and is therefore the default. A
     local override buys iteration speed at the cost of reproducibility, which is
     an acceptable trade for dev and not for CI.
+
+    Raises on a missing or empty directory rather than returning it. An empty
+    corpus directory produces a false green: every probe finds nothing, the gate
+    reports success, and the contamination it exists to catch sails through. This
+    is the same failure class as the IN_CORPUS_SUBPATHS = "macros" defect, where
+    a path that matched nothing was skipped in silence.
     """
     if explicit is not None:
-        return explicit.expanduser()
+        path = explicit.expanduser()
+        if not path.is_dir():
+            raise SystemExit(
+                f"ERROR: --corpus-dir {path} does not exist.\n"
+                "  An absent corpus directory would make every probe pass vacuously.\n"
+                "  Pass a real path, or run `make index-corpus` and drop the override."
+            )
+        if not any(path.iterdir()):
+            raise SystemExit(
+                f"ERROR: --corpus-dir {path} is empty.\n"
+                "  An empty corpus directory produces a FALSE GREEN: every probe finds\n"
+                "  nothing and the gate reports success. Refusing to run."
+            )
+        return path
     matches = sorted(Path("/tmp").glob("dpr-corpus-*"))
     if not matches:
         return None
-    return matches[-1]
+    newest = matches[-1]
+    if not any(newest.iterdir()):
+        raise SystemExit(
+            f"ERROR: canonical corpus dir {newest} is empty.\n"
+            "  An empty corpus directory produces a FALSE GREEN. Re-run `make index-corpus`,\n"
+            "  or pass --corpus-dir explicitly for local dev."
+        )
+    return newest
 
 def in_corpus_files(repo_root: Path) -> list[Path]:
     """Every indexed file under one corpus repo."""

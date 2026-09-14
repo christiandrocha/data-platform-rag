@@ -162,3 +162,36 @@ keeps working, so with the default `LANGFUSE_ENABLED=false` nothing surfaces
 until observability is switched on.
 
 Decide whether to cap the pin at 2.x or rewrite for 4.x, then make the KB match.
+
+
+---
+
+## 8. `UNIQUE (source_path, chunk_index)` collides across the two corpus repos
+
+**Status**: RESOLVED 2026-09-14
+**Raised by**: the `golden-set-curation` brainstorm, while mapping
+`expected_source_paths` onto `chunks`
+**Class**: Phase 0 defect — shipped in commit `d0bf569`, found after
+
+`sql/01_schema.sql` declared `UNIQUE (source_path, chunk_index)` with
+`source_path` stored unqualified (`docs/adr/ADR-0019.md`, `README.md`). Both
+corpus repos have a `README.md` and a `docs/adr/` tree. Under ADR-007 a README is
+chunked by `##` section with an ordinal `chunk_index`, so
+`sdd-kafka-snowflake-2/README.md` and `sdd-kafka-databricks/README.md` both
+produce `(README.md, 0)`. The second insert violates the constraint, and
+`make index-corpus` fails partway through the second repo.
+
+The same flaw appeared in the golden set: `q004` cited files from both projects
+and disambiguated them only with a YAML comment, which the parser discards.
+
+**Resolution**: key qualified to `(source_project, source_path, chunk_index)`,
+with the reason recorded inline in the DDL so it is not "simplified" later.
+`expected_source_paths` changed from `list[str]` to a list of `{project, path}`
+objects; `scripts/validate_golden_set.py` now rejects bare strings and entries
+whose `project` is outside `SourceProject`. Prose references updated in ADR-007,
+`scripts/index_corpus.py`, and `.claude/sdd/architecture/ARCHITECTURE.md`.
+
+**Why it survived Phase 0**: every review pass read the constraint as a
+single-repo statement. Nothing in the schema, the ADRs, or the tests exercised
+two repos at once, and no integration test writes a chunk yet. The first test
+that would have caught it is the one `corpus-indexing` has not written.

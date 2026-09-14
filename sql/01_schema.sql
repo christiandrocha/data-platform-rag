@@ -42,8 +42,12 @@ CREATE TABLE chunks (
     token_count     INT NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    -- Deduplication key: same source_path + chunk_index means "same chunk"
-    UNIQUE (source_path, chunk_index)
+    -- Deduplication key. MUST include source_project: the two corpus repos share
+    -- file names at the same relative paths (both have README.md, both have
+    -- docs/adr/). Without the project column, sdd-kafka-snowflake-2/README.md and
+    -- sdd-kafka-databricks/README.md collide at chunk_index = 0 and the second
+    -- insert fails. Found during the golden-set-curation brainstorm, 2026-09-14.
+    UNIQUE (source_project, source_path, chunk_index)
 );
 
 COMMENT ON TABLE chunks IS 'Vector store for data-platform-rag. Two collections (decisions/architecture) sharing one physical table. See ADR-002.';

@@ -44,7 +44,7 @@
 3. `loader.py` walks the clone, yields `(source_type, source_path, raw_text, metadata)` tuples
 4. `chunker.py` splits per strategy (ADR: full document as chunk; README: by heading; contract: whole YAML)
 5. `embedder.py` batches through `bge-small-en-v1.5`, returns 384-dim vectors
-6. `writer.py` upserts into `chunks` table with idempotent `(source_path, chunk_index)` key
+6. `writer.py` upserts into `chunks` table with idempotent `(source_project, source_path, chunk_index)` key
 7. Clone deleted, embeddings persist in Postgres
 
 ## Data flow — online query
@@ -72,6 +72,6 @@
 
 ## Reindexing policy
 
-- Idempotent: `(source_path, chunk_index)` unique constraint means re-running `make index-corpus` upserts, does not duplicate.
+- Idempotent: `(source_project, source_path, chunk_index)` unique constraint means re-running `make index-corpus` upserts, does not duplicate. The project column is load-bearing — both corpus repos have a `README.md`.
 - Full reindex needed only if: embedding model changes, chunking strategy changes, or a source repo has been substantially rewritten.
 - No streaming updates. This is a periodic-refresh system.

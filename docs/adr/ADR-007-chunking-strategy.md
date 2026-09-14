@@ -55,7 +55,9 @@ One strategy per source type:
 | `macro` | `0` | `null` |
 | `schema` | Ordinal of the subject in the file | The subject name |
 
-`UNIQUE (source_path, chunk_index)` in `sql/01_schema.sql` is the dedup key,
+`UNIQUE (source_project, source_path, chunk_index)` in `sql/01_schema.sql` is
+the dedup key (the project column was added 2026-09-14 — the two repos share
+file names, so an unqualified key collides on `README.md`),
 so `chunk_index` must be deterministic for a given input file. Re-running
 `make index-corpus` on unchanged sources must produce identical keys.
 

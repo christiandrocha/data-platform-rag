@@ -12,11 +12,19 @@ Format: YAML per question in `evaluation_questions.yml`.
   intent: decision | architecture | comparison | out-of-scope
   question: "What is the question?"
   expected_answer: "Ground truth answer"
-  expected_source_paths:
-    - docs/adr/ADR-XXX-name.md   # Must be in retrieval top-5
-    - README.md
+  expected_source_paths:          # {project, path} objects — project is mandatory
+    - project: sdd-kafka-snowflake-2
+      path: docs/adr/ADR-XXXX.md  # Must be in the retrieval top-k
+    - project: sdd-kafka-databricks
+      path: README.md
   should_fallback: false          # true only for out-of-scope questions
 ```
+
+`project` must be one of the two corpus repos, mirroring
+`data_platform_rag.contracts.SourceProject`. It is mandatory rather than
+inferred: both repos carry a `README.md` and a `docs/adr/` tree, so a bare path
+does not identify a document. `scripts/validate_golden_set.py` rejects entries
+without it, and also enforces the distribution below once the set reaches 50.
 
 ## Distribution target
 

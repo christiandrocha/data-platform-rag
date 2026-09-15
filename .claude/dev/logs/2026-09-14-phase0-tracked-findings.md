@@ -610,3 +610,18 @@ exists to prevent.
 - **Open when the slot arrives**: if ADR 004 is already cited by q006, the author
   decides whether to anchor against ADR 004 as a distinct sub-question, or whether
   another source is appropriate.
+
+### Candidate C — Snowflake ingestion cost decision (added 2026-09-15)
+
+- **Author's idea, verbatim**: "O que foi decidido na ingestão no Snowflake para redução de custo?"
+- **Nearest source**: `sdd-kafka-snowflake-2/docs/adr/0022_tier_1_ingestion_scope.md`,
+  walk position 19.
+- **What the sources show** (checked 2026-09-15 at `82a2e26`):
+  - ADR 0022 line 28: "Cost is charged on ingestion volume, not on
+    transformation. So the saving has to…"
+  - ADR 0029 lines 86–88 also tie ingestion cost to the 10-versus-20 domain
+    scope. ADR 0029 is already cited by q001, whose answer mentions cost.
+  - `README.md` has 51 lines matching cost or credit.
+- **Open when the slot arrives**: as phrased, the question is answerable from
+  both 0022 and 0029, so it overlaps q001. The author decides how to anchor
+  it to 0022.

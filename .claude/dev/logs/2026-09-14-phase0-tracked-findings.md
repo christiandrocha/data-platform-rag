@@ -625,3 +625,47 @@ exists to prevent.
 - **Open when the slot arrives**: as phrased, the question is answerable from
   both 0022 and 0029, so it overlaps q001. The author decides how to anchor
   it to 0022.
+
+---
+
+## 23. Two audiences, two question voices — both go into the golden set
+
+**Status**: DECIDED 2026-09-15
+**Relates to**: PRE_BUILD_VALIDATION Section 1 (target audience), ADR-011, ADR-003
+
+**Finding.** Section 1 names "technical recruiters and hiring managers" as one
+audience. They ask questions differently. In the author's words: "O recrutador
+não vai saber sobre conceitos técnicos. Ele tem palavras chave e espera
+identificar estas palavras na entrevista."
+
+- **Recruiter voice**: short, built around a keyword from the job posting,
+  wants confirmation and where it was used.
+- **Technical voice** (hiring manager, interviewer): asks why a decision was
+  taken and what was traded off.
+
+q001–q005 are all in the technical voice, so the recruiter was unrepresented.
+
+**Decision.** Both voices are written within the existing intents and the fixed
+22/18/5/5 distribution. The taxonomy does not change.
+
+**Why it matters for retrieval.** A keyword question carries little context,
+and its keyword can appear across many files: "Liquid Clustering" or
+`cluster_by` appears in 25 in-corpus files. The exact-term half of hybrid
+retrieval (ADR-003) exists for this case. A set with only technical-voice
+questions would never measure it.
+
+**On contamination.** A recruiter question naturally contains the keyword.
+ADR-011's contamination checks target phrasing copied from the source (8-word
+verbatim spans, and whether a non-reader would phrase it that way). A technology
+name taken from a job posting is how that non-reader actually asks.
+
+**Rejected.**
+- A new intent for keyword questions: it would change Section 5E's distribution
+  and `contracts.Intent`, and likely need an ADR. There is no evidence yet that
+  keyword questions behave differently enough to need their own category.
+- Technical voice only: the set would ignore the audience that asks first.
+
+**Open.**
+- Whether each question records its voice in a YAML field, so RAGAS can be
+  reported per voice.
+- The proportion of recruiter-voice questions is not fixed.

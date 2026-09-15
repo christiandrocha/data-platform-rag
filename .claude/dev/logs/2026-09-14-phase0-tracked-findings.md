@@ -272,6 +272,8 @@ questions cite short sources and adversarial mode scans ADR titles rather than
 full text. Expect the per-question figure to rise as questions cite fuller ADRs.
 Real usage is recorded per run in the audit report footer.
 
+**Corrected by #20** (2026-09-15): the per-question figure above is an estimate, not a measurement.
+
 ---
 
 ## 12. Retreat A3 invoked — LLM proposes architecture questions
@@ -471,3 +473,73 @@ and so the immutable-seed invariant is not disturbed to fix a non-problem.
 
 Two real defects, not three, and not the three first proposed. Over-attributing
 errors corrupts the record in the same way under-attributing does.
+
+---
+
+## 19. Starter questions cited ADR paths that do not exist — coverage was 0/21
+
+**Status**: RESOLVED 2026-09-15
+**Relates to**: #16 (a check over nothing passes)
+
+**What the sources show.** q001–q004 cited three ADR paths that exist neither in
+`corpus_inventory.yml` nor in either corpus clone:
+
+| Cited | Real file (inventory and clone) |
+|-------|---------------------------------|
+| `docs/adr/ADR-0029.md` (q001) | `docs/adr/0029_snowpipe_streaming_as_the_ingestion_path.md` |
+| `docs/adr/ADR-007.md` (q002) | `docs/adr/007_pipeline_unification.md` |
+| `docs/adr/ADR-0030.md` (q003, q004) | `docs/adr/0030_avro_and_schema_registry_as_the_contract.md` |
+
+Two effects, both silent:
+
+- `golden_set_coverage.py` reported `0/21 inventory ADRs covered`. `--next`
+  printed `[1/21]`, where the number is covered-count + 1, not a walk position.
+- `audit_questions.py::source_excerpts` substituted `— NOT FOUND —` for each
+  missing file. For q001 and q002 the entire cited-source block was that one
+  line (62 and 60 chars), and for q003 and q004 only the README text reached the
+  prompt.
+
+**Why nothing failed.** `validate_golden_set.py::check_sources` checks the
+*shape* of each entry (`project` and `path` present, project in
+`SourceProject`), never that the path exists. #18 audited the inventory against
+the filesystem (21/21), not the YAML against the inventory. Same class as #13
+and #16: a path that matches nothing does not raise.
+
+**Resolution.** Paths replaced with the inventory entries. No `question` or
+`expected_answer` text changed. No re-baseline is needed under ADR-011
+Commitment 2, because no baseline exists yet.
+
+**Not established by this fix.** Nothing on disk shows an audit that read these
+three ADRs: `.claude/dev/reports/` does not exist. The grounding of q001–q004
+against their ADRs is therefore unverified, and this entry makes no claim either
+way about their content.
+
+---
+
+## 20. Audit cost in #11 was an estimate, and the audit truncates long sources
+
+**Status**: RECORDED 2026-09-15
+**Relates to**: #11 (the figure), #19 (the paths that shaped it)
+**Pattern**: fourth correction of a recorded figure, after #6, #11 and #15.
+
+**The figure was an estimate labelled as a measurement.** #11 records ~$0.0075
+per in-scope question as "measured, not estimated", from `--dry-run`.
+`audit_questions.py` computes the dry-run figure as `len(prompt) // 4` input
+tokens plus a flat 150 output tokens per question. Nothing is measured.
+
+**It was also computed over missing sources.** Re-running `--dry-run` before the
+#19 fix reproduces $0.0301 / 4 = $0.0075 exactly: q001 and q002 carried a
+`NOT FOUND` line instead of source text. After the fix the same formula gives
+$0.0502 / 4 ≈ $0.0126. That is still an estimate and is not recorded as the cost.
+
+**Real per-question cost: not yet measured.** No non-dry audit has run, and
+`.claude/dev/reports/` does not exist. The first real Layer 2 run records actual
+token usage in its report footer, and that figure replaces this gap. The #11
+decision (audit cost is negligible) is not affected.
+
+**The auditor truncates each cited source at 4,000 characters.**
+`source_excerpts(..., max_chars=4000)`. `sdd-kafka-databricks/docs/adr/007_pipeline_unification.md`,
+cited by q002, is 4,131 words, so the auditor reads only its opening. A claim
+grounded later in a long ADR can be reported as unsupported: a false negative
+that sends the author to fix a question that was correct. Not fixed here — the
+limit and its replacement are a code change for a separate decision.

@@ -21,7 +21,7 @@
   expected_answer: "The classic Snowpipe was already running but had file-based ingestion overhead. Streaming was chosen after measuring cost and confirming v4 connector managed pipes met the latency target."
   expected_source_paths:
     - project: sdd-kafka-snowflake-2
-      path: docs/adr/ADR-0029.md
+      path: docs/adr/0029_snowpipe_streaming_as_the_ingestion_path.md
 
 - id: q002
   provenance: human
@@ -30,7 +30,7 @@
   expected_answer: "Unity Catalog attributes lineage by notebook path, not by parametrized execution. Twenty Bronze runs of the same notebook collapse to a single lineage node, obscuring per-domain visibility. ADR-007 supersedes ADR-003 for this reason."
   expected_source_paths:
     - project: sdd-kafka-databricks
-      path: docs/adr/ADR-007.md
+      path: docs/adr/007_pipeline_unification.md
 
 - id: q003
   provenance: human
@@ -39,7 +39,7 @@
   expected_answer: "Via Confluent Schema Registry with Avro BACKWARD compatibility, plus a CONFIG.TABLE_METADATA table that feeds the resolve_cdc macro. See ADR-0030."
   expected_source_paths:
     - project: sdd-kafka-snowflake-2
-      path: docs/adr/ADR-0030.md
+      path: docs/adr/0030_avro_and_schema_registry_as_the_contract.md
     - project: sdd-kafka-snowflake-2
       path: README.md
 
@@ -50,7 +50,7 @@
   expected_answer: "Snowflake uses Confluent Schema Registry + Avro + CONFIG.TABLE_METADATA. Databricks uses YAML data contracts validated by test_contracts.py in CI. Both enforce backward-compatible evolution but through different mechanisms."
   expected_source_paths:
     - project: sdd-kafka-snowflake-2
-      path: docs/adr/ADR-0030.md
+      path: docs/adr/0030_avro_and_schema_registry_as_the_contract.md
     - project: sdd-kafka-databricks
       path: README.md
 

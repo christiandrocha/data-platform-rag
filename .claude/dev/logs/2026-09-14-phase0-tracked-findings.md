@@ -575,3 +575,38 @@ than the source supports:
 - a Silver-versus-Gold error, contradicted by the ADR's alignment table.
 
 Each was corrected by checking the source, not by recalling it.
+
+---
+
+## 22. Question candidates parked until their walk-order slot
+
+**Status**: PARKED 2026-09-15
+**Rule**: ADR-011 authoring order. A candidate is written only when its ADR comes
+up in the seeded walk; drafting ahead of the order is the appetite bias the seed
+exists to prevent.
+
+### Candidate A — Snowflake to Databricks migration
+
+- **Author's idea, verbatim**: "Como migrar do Snowflake para o Databricks?"
+- **Nearest source**: `sdd-kafka-databricks/docs/adr/001_databricks_vs_snowflake.md`,
+  walk position 7. Also `sdd-kafka-databricks/README.md#What Evolved from sdd-kafka-snowflake`.
+- **What the sources show** (checked 2026-09-15 at `f1295df`):
+  - ADR 001 records *what* was replaced and *why*: a component list, a
+    rationale table, and rejected alternatives.
+  - No in-corpus file describes *how to execute* a Snowflake-to-Databricks
+    migration. Every in-corpus match for "migrat" concerns Snowpipe V4
+    (snowflake) or Lakeflow (databricks).
+- **Open when the slot arrives**: an answer to a *how* question needs claims
+  the corpus does not contain (the #17 failure), and PRE_BUILD_VALIDATION
+  Section 1 excludes implementation how-tos. If the question names both
+  platforms and is classed `comparison`, it needs a source from each project.
+
+### Candidate B — `test_contracts.py` as an enforcement mechanism
+
+- **Batch**: human. `intent: decision`.
+- **Nearest source**: `sdd-kafka-databricks/docs/adr/004_liquid_clustering.md`,
+  walk position 1. Its Decision section names `test_contracts.py` as the
+  validation of the cluster_by / merge_key rule.
+- **Open when the slot arrives**: if ADR 004 is already cited by q006, the author
+  decides whether to anchor against ADR 004 as a distinct sub-question, or whether
+  another source is appropriate.

@@ -543,3 +543,35 @@ cited by q002, is 4,131 words, so the auditor reads only its opening. A claim
 grounded later in a long ADR can be reported as unsupported: a false negative
 that sends the author to fix a question that was correct. Not fixed here — the
 limit and its replacement are a code change for a separate decision.
+
+---
+
+## 21. Guideline — acknowledge defects from the source, not from memory
+
+**Status**: DECIDED 2026-09-15
+**Relates to**: #18 (an incident account corrected against the source), ADR-011 Commitment 1
+
+> When acknowledging a defect, list only what the source shows is wrong; do not
+> reconstruct what "should have been" from memory. If verification is needed to
+> describe the defect correctly, request the source before proposing the
+> correction.
+
+**Applies to every contributor, human or model.** It was first proposed as a
+personal rule. It is recorded here at project level because a project rule is
+auditable: a correction that does not cite the source it was checked against
+can be flagged in review.
+
+**Why it belongs next to ADR-011.** Commitment 1 requires verifying against the
+source before *writing*. This guideline extends the same discipline to
+*correcting*: a defect description is itself a claim, and it needs grounding just
+as much.
+
+**On record.** #18 documents an incident account of q006 that named more defects
+than the source supports:
+
+- a suspected inventory bug, disproved by auditing the inventory against the
+  filesystem;
+- "preserving pruning" as unsupported, contradicted by the ADR's own wording;
+- a Silver-versus-Gold error, contradicted by the ADR's alignment table.
+
+Each was corrected by checking the source, not by recalling it.

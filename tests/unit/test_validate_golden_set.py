@@ -17,6 +17,7 @@ from validate_golden_set import (  # noqa: E402
     check_coherence,
     check_distribution,
     check_sources,
+    check_voice,
     should_fallback,
 )
 
@@ -218,3 +219,25 @@ def test_distribution_errors_above_fifty():
     errors, warnings = [], []
     check_distribution(_set(decision=51), errors, warnings)
     assert any("exactly 50" in e for e in errors)
+
+
+# ─── check_voice ─────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("voice", ["recruiter", "technical"])
+def test_voice_accepts_both_audiences(voice):
+    errors = []
+    check_voice(0, in_scope(voice=voice), errors)
+    assert errors == []
+
+
+def test_voice_rejects_unknown_value():
+    errors = []
+    check_voice(0, in_scope(voice="manager"), errors)
+    assert any("invalid voice" in e for e in errors)
+
+
+def test_voice_rejects_missing_field():
+    errors = []
+    check_voice(0, in_scope(), errors)
+    assert any("invalid voice" in e for e in errors)

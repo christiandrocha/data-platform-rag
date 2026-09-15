@@ -10,6 +10,7 @@ Format: YAML per question in `evaluation_questions.yml`.
 ```yaml
 - id: q001
   provenance: human               # human | llm — see below
+  voice: technical                # recruiter | technical — see below
   intent: decision | architecture | comparison | out-of-scope
   question: "What is the question?"
   expected_answer: "Ground truth answer"
@@ -48,6 +49,21 @@ because that ADR also pre-approves **retreat A3**, under which an LLM may propos
   number rather than an assumed bias.
 
 The point of the field is to make the bias **measurable**, not to hide it.
+
+## Voice
+
+Every question declares `voice: recruiter | technical`.
+
+The target audience asks in two different ways (dev log #23):
+
+- **recruiter** — no technical background; a short question built around a
+  keyword from the job posting, expecting confirmation and where it was used.
+- **technical** — a hiring manager or interviewer asking why a decision was
+  taken and what was traded off.
+
+Both voices are written within the same intents and the same distribution.
+RAGAS results are reported per voice, so a system that serves one audience and
+fails the other shows up as a gap instead of an average.
 
 ## Distribution target
 

@@ -10,12 +10,17 @@
 # to propose architecture questions, and the two populations must stay separable
 # for stratified Layer 2 audits and stratified RAGAS reporting.
 #
+# Every question declares voice: recruiter | technical (dev log #23). Recruiters
+# ask short questions built on job-posting keywords; hiring managers and
+# interviewers ask why a decision was taken. RAGAS is reported per voice.
+#
 # There is no should_fallback field. Whether a question must fire the fallback is
 # derived from intent == "out-of-scope". Two fields encoding one fact drift; the
 # derived form cannot.
 
 - id: q001
   provenance: human
+  voice: technical
   intent: decision
   question: "Why did the Snowflake project choose Snowpipe Streaming over the classic file-based Snowpipe?"
   expected_answer: "The classic Snowpipe was already running but had file-based ingestion overhead. Streaming was chosen after measuring cost and confirming v4 connector managed pipes met the latency target."
@@ -25,6 +30,7 @@
 
 - id: q002
   provenance: human
+  voice: technical
   intent: decision
   question: "Why does the Databricks project use one unified Lakeflow pipeline instead of many parametrized notebooks?"
   expected_answer: "Unity Catalog attributes lineage by notebook path, not by parametrized execution. Twenty Bronze runs of the same notebook collapse to a single lineage node, obscuring per-domain visibility. ADR-007 supersedes ADR-003 for this reason."
@@ -34,6 +40,7 @@
 
 - id: q003
   provenance: human
+  voice: technical
   intent: architecture
   question: "How does the Snowflake project enforce data contracts?"
   expected_answer: "Via Confluent Schema Registry with Avro BACKWARD compatibility, plus a CONFIG.TABLE_METADATA table that feeds the resolve_cdc macro. See ADR-0030."
@@ -45,6 +52,7 @@
 
 - id: q004
   provenance: human
+  voice: technical
   intent: comparison
   question: "What are the main differences in how the Snowflake and Databricks projects handle CDC schema evolution?"
   expected_answer: "Snowflake uses Confluent Schema Registry + Avro + CONFIG.TABLE_METADATA. Databricks uses YAML data contracts validated by test_contracts.py in CI. Both enforce backward-compatible evolution but through different mechanisms."
@@ -56,6 +64,7 @@
 
 - id: q005
   provenance: human
+  voice: technical
   intent: out-of-scope
   question: "What is Christian's opinion on Apache Flink versus Kafka Streams?"
   expected_answer: null

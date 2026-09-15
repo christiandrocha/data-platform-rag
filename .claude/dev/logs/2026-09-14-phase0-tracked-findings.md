@@ -669,3 +669,6 @@ name taken from a job posting is how that non-reader actually asks.
 - Whether each question records its voice in a YAML field, so RAGAS can be
   reported per voice.
 - The proportion of recruiter-voice questions is not fixed.
+
+**Resolved 2026-09-15 (first open item):** a required `voice: recruiter | technical`
+field was added to the YAML and enforced by `validate_golden_set.py`.

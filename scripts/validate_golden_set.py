@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yaml
 
-REQUIRED_FIELDS = {"id", "provenance", "intent", "question", "expected_answer",
+REQUIRED_FIELDS = {"id", "provenance", "voice", "intent", "question", "expected_answer",
                    "expected_source_paths"}
 
 # ADR-011 Commitment 1: all questions are human-authored. `llm` exists only for
@@ -15,6 +15,12 @@ REQUIRED_FIELDS = {"id", "provenance", "intent", "question", "expected_answer",
 # after the fact, and the retreat silently becomes the thing the commitment
 # exists to prevent.
 VALID_PROVENANCE = {"human", "llm"}
+
+# Dev log #23: recruiters ask with job-posting keywords; hiring managers and
+# interviewers ask why a decision was taken. Recorded per question so RAGAS can
+# be reported per voice — pooled scores would hide a system that serves one
+# audience and fails the other.
+VALID_VOICES = {"recruiter", "technical"}
 
 # Required on out-of-scope questions only; rejected on any other intent.
 ADVERSARIAL_FIELDS = {"contamination_probes", "grep_verified"}
@@ -134,6 +140,12 @@ def check_adversarial_fields(i: int, q: dict, errors: list[str]) -> None:
             errors.append(f"{where}.contamination_probes[{j}] must be a non-empty string")
 
 
+def check_voice(i: int, q: dict, errors: list[str]) -> None:
+    """Every question declares who is asking: recruiter or technical (dev log #23)."""
+    if q.get("voice") not in VALID_VOICES:
+        errors.append(f"[{i}] invalid voice: {q.get('voice')!r}")
+
+
 def check_distribution(data: list, errors: list[str], warnings: list[str]) -> None:
     """Enforce 22/18/5/5 once the set is full; report progress until then."""
     counts = Counter(q.get("intent") for q in data if isinstance(q, dict))
@@ -186,6 +198,7 @@ def main() -> int:
         check_sources(i, q, errors)
         check_coherence(i, q, errors)
         check_adversarial_fields(i, q, errors)
+        check_voice(i, q, errors)
 
     check_distribution(data, errors, warnings)
 
@@ -199,7 +212,9 @@ def main() -> int:
     n_fallback = sum(1 for q in data if should_fallback(q))
     by_prov = Counter(q.get("provenance") for q in data)
     prov = ", ".join(f"{k}={v}" for k, v in sorted(by_prov.items()) if k)
-    print(f"✓ {len(data)} questions valid ({n_fallback} expect the fallback) [{prov}]")
+    by_voice = Counter(q.get("voice") for q in data)
+    voice = ", ".join(f"{k}={v}" for k, v in sorted(by_voice.items()) if k)
+    print(f"✓ {len(data)} questions valid ({n_fallback} expect the fallback) [{prov}] [{voice}]")
     return 0
 
 

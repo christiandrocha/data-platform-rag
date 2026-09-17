@@ -672,3 +672,68 @@ name taken from a job posting is how that non-reader actually asks.
 
 **Resolved 2026-09-15 (first open item):** a required `voice: recruiter | technical`
 field was added to the YAML and enforced by `validate_golden_set.py`.
+
+---
+
+## 24. Recruiter-voice candidates, and the audience asks about the stack the corpus excludes
+
+**Status**: PARKED 2026-09-17
+**Relates to**: finding #23 (the two voices), #22 (parking rule), ADR-006, ADR-011
+**Sources read**: `README.md#Stack` and `README.md#Interview Cheat Sheet` in both
+corpus repos, at the working copies in `~/Documents`. The ADRs behind each
+candidate below were **not** read — per #18 that read happens when the slot
+arrives, before the question is written.
+
+**The tension.** PRE_BUILD_VALIDATION Section 1 names technical recruiters as the
+target audience, and the Rimini Street posting that Section names asks for
+pgvector, hybrid retrieval and RAG evaluation. Those are the keywords of *this*
+repo's stack, and this repo is excluded from the corpus by an AGENTS.md boundary.
+So the audience's most natural keyword questions are precisely the ones the
+product cannot answer: a RAG system that returns the LinkedIn fallback when asked
+whether its author has built RAG systems.
+
+This is the boundary working as designed, not a defect. Recording it because it
+is a product-level consequence of ADR-006 that no ADR currently states, and
+because it converts into something useful: these are the most realistic
+`out-of-scope` candidates available, more so than q005's opinion question.
+
+**Candidates, grouped by intent.** Keywords taken from the two Stack tables.
+
+- `architecture` (LLM batch): Unity Catalog · Delta Lake · dbt · Prometheus and
+  Grafana.
+- `decision` (human batch): Snowpipe Streaming — collides with q001 by design,
+  same source in the other voice, which is what #23 says the set should measure ·
+  Liquid Clustering, whose source ADR 004 is the one that rejected q006, though a
+  keyword question carries none of the presupposition that caused the rejection ·
+  Kafka Connect · Databricks Asset Bundles.
+- `out-of-scope`: pgvector · RAG systems · LangChain · vector databases.
+
+**Two checks run against the working copies** (not the canonical
+`/tmp/dpr-corpus-*`, so `make verify-adversarials` remains the authority):
+
+1. "Kafka Connect" was suspected of being absent — the Stack table names only the
+   "Snowflake Kafka Connector v4". It is present, in 4 snowflake files and 1
+   databricks file. The suspicion was wrong and the candidate stands.
+2. `pgvector`, `LangChain` and `vector database` match zero in-corpus files, in
+   either case. They are clean probes.
+
+**A probe that is not clean: `RAG`.** `probe_matches()` is a case-sensitive
+substring search (`verify_adversarials.py:122`, `if probe in line`), and
+`STORAGE` contains the substring `RAG`. As a word, `RAG` appears zero times in
+the corpus; as an uppercase substring it hits
+`0021_kafka_connector_v4_schematization.md:62`, inside `AVERAGE_RATING`. A
+question declaring the bare probe `RAG` would fail Layer 1 on a line that has
+nothing to do with retrieval-augmented generation.
+
+The lowercase form is worse, not better: `storage` and `average` are ordinary
+prose throughout both repos.
+
+The fix is the probe, not the checker. ADR-011 already warns against probes that
+are generic prose, and narrowing a probe is explicitly never a unilateral act
+(`verify_adversarials.py:190`) — so the question that uses this keyword declares
+`RAG system` or `retrieval-augmented`, and the choice is recorded with it. The
+substring behaviour itself is correct for its purpose and is not being changed.
+
+**Open.** Whether ADR-006 should state the consequence named above — that the
+fallback fires on the audience's own vocabulary — as a documented product
+property rather than an emergent one.

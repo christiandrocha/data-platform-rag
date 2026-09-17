@@ -27,7 +27,10 @@
 Two external repositories, indexed offline (not runtime):
 
 - **`sdd-kafka-snowflake-2`** — PostgreSQL WAL → Debezium → Kafka → Snowflake (dbt + Dagster)
-  - 12 ADRs + README + macros + Schema Registry contracts
+  - 12 ADRs + README + 3 dbt macros. The Schema Registry subjects are **not**
+    corpus: no `.avsc` or subject file exists in the repo, because they live in a
+    running registry that `scripts/sync_metadata.py` reads over the network. The
+    `schema` source type therefore has no v1 producer (ADR-012).
 - **`sdd-kafka-databricks`** — PostgreSQL WAL → Debezium → Kafka → Databricks (Lakeflow + Unity Catalog)
   - 9 ADRs + README + 21 YAML data contracts
 
@@ -155,7 +158,9 @@ make dev                        # run streamlit locally against local db
 make down                       # stop containers
 
 # Data pipeline
-make index-corpus               # clone target repos, chunk, embed, upsert into pgvector
+make fetch-corpus               # clone, extract in-corpus files, write MANIFEST, delete clone
+make index-corpus-dry           # chunk the snapshot per ADR-007, report tokens, write nothing
+make index-corpus               # chunk, embed, upsert into pgvector (slice 2, not yet built)
 make reindex                    # drop and rebuild vectors (destructive)
 make verify-indexes             # EXPLAIN ANALYZE the top queries, compare to baseline
 
@@ -183,7 +188,7 @@ make deploy                     # push to streamlit cloud (via git)
 ```
 
 **Corpus location.** Scripts that read the corpus default to the newest
-`/tmp/dpr-corpus-*`, created by `make index-corpus`. Local dev may override
+`/tmp/dpr-corpus-*`, created by `make fetch-corpus` (ADR-012). Local dev may override
 `--corpus-dir` (or `CORPUS_DIR=` for make targets) for iteration speed; CI uses
 the default for reproducibility — a GitHub Actions runner has no `~/Documents`,
 so `/tmp` is the only path that works in both environments.
@@ -207,8 +212,16 @@ What an agent working on this repo must **NEVER** do:
 - **Never store secrets in the repo.** `.env.example` has all keys with
   blank values. Real values live in `.env` (gitignored) locally, in GitHub
   Actions secrets in CI, in Streamlit Cloud secrets in production.
-- **Never index the target repos as full clone.** `make index-corpus` clones
-  to `/tmp`, extracts relevant files, indexes, and deletes.
+- **Never index the target repos as full clone.** The corpus is the extracted
+  in-corpus file set, never the whole tree. `make fetch-corpus` shallow-clones
+  each repo, copies only in-corpus files into `/tmp/dpr-corpus-{timestamp}/`,
+  writes a `MANIFEST.json` recording the commit SHA and a sha256 per file, and
+  deletes the full clone before exiting. The extracted snapshot persists until
+  the next `fetch-corpus` — that is deliberate, and its consumers depend on it
+  (ADR-012).
+- **Never re-declare the in-corpus file set.** It is defined once, in
+  `data_platform_rag/indexer/corpus.py`. A consumer that names its own paths
+  drifts from the index, and a gate wider than the index over-blocks (ADR-012).
 - **Never commit generated embeddings as JSON dumps.** Embeddings live in
   Postgres. Reindex is idempotent.
 - **Never skip HNSW index tuning.** Default parameters are baseline. Tuning

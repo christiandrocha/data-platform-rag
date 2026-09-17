@@ -11,9 +11,11 @@ the severity convention in sdd-kafka-snowflake-2 ADR-0027.
 
 Two properties decided on evidence, both load-bearing:
 
-* **Scoped** to the indexed paths below, never the clone root. Probe "Flink"
+* **Scoped** to the in-corpus file set, never the snapshot root. Probe "Flink"
   matches 5 files in the sdd-kafka-databricks clone and 0 in-corpus; all five are
-  .claude/ internals that are never indexed.
+  .claude/ internals that are never indexed. That set is owned by
+  `data_platform_rag.indexer.corpus` and imported, never re-declared here: a gate
+  wider than the index over-blocks valid adversarials (ADR-012).
 * **Case-sensitive.** sdd-kafka-databricks/README.md:31 reads "Kafka streams,
   MongoDB documents" — generic lowercase prose that a case-insensitive probe for
   "Kafka Streams" would match, failing a valid adversarial.
@@ -30,84 +32,13 @@ from pathlib import Path
 
 import yaml
 
-# The indexed file set. Anything outside this is not corpus and must not be
-# grepped — see the module docstring.
-#
-# `dbt/macros`, not `macros`: neither repo has a top-level macros/ directory, and
-# a non-existent subpath is skipped silently, so the original constant covered
-# zero macro files without ever erroring. Scoping to dbt/macros also excludes
-# dbt/dbt_packages/, which is vendored third-party code and never indexed.
-IN_CORPUS_SUBPATHS = ("docs/adr", "README.md", "contracts", "dbt/macros")
+from data_platform_rag.indexer.corpus import (
+    corpus_projects,
+    in_corpus_files,
+    resolve_snapshot,
+)
 
 GOLDEN_SET = Path("docs/golden-set/evaluation_questions.yml")
-INVENTORY = Path("docs/golden-set/corpus_inventory.yml")
-
-# Keys in corpus_inventory.yml that are configuration rather than a project.
-_NON_PROJECT_KEYS = {"seed", "verified_against_clone"}
-
-
-def corpus_projects() -> list[str]:
-    """The corpus repo names, read from the inventory — never inferred from disk.
-
-    Iterating every subdirectory of --corpus-dir would grep whatever happens to
-    sit beside the clones, including this repository, which AGENTS.md forbids
-    treating as a corpus source. The inventory is the allowlist.
-    """
-    inventory = yaml.safe_load(INVENTORY.read_text())
-    return sorted(k for k in inventory if k not in _NON_PROJECT_KEYS)
-
-
-def resolve_corpus_dir(explicit: Path | None) -> Path | None:
-    """Canonical location is /tmp/dpr-corpus-*/; an explicit path overrides it.
-
-    CI runs on a GitHub Actions runner with no ~/Documents, so /tmp is the only
-    location that works in both environments and is therefore the default. A
-    local override buys iteration speed at the cost of reproducibility, which is
-    an acceptable trade for dev and not for CI.
-
-    Raises on a missing or empty directory rather than returning it. An empty
-    corpus directory produces a false green: every probe finds nothing, the gate
-    reports success, and the contamination it exists to catch sails through. This
-    is the same failure class as the IN_CORPUS_SUBPATHS = "macros" defect, where
-    a path that matched nothing was skipped in silence.
-    """
-    if explicit is not None:
-        path = explicit.expanduser()
-        if not path.is_dir():
-            raise SystemExit(
-                f"ERROR: --corpus-dir {path} does not exist.\n"
-                "  An absent corpus directory would make every probe pass vacuously.\n"
-                "  Pass a real path, or run `make index-corpus` and drop the override."
-            )
-        if not any(path.iterdir()):
-            raise SystemExit(
-                f"ERROR: --corpus-dir {path} is empty.\n"
-                "  An empty corpus directory produces a FALSE GREEN: every probe finds\n"
-                "  nothing and the gate reports success. Refusing to run."
-            )
-        return path
-    matches = sorted(Path("/tmp").glob("dpr-corpus-*"))
-    if not matches:
-        return None
-    newest = matches[-1]
-    if not any(newest.iterdir()):
-        raise SystemExit(
-            f"ERROR: canonical corpus dir {newest} is empty.\n"
-            "  An empty corpus directory produces a FALSE GREEN. Re-run `make index-corpus`,\n"
-            "  or pass --corpus-dir explicitly for local dev."
-        )
-    return newest
-
-def in_corpus_files(repo_root: Path) -> list[Path]:
-    """Every indexed file under one corpus repo."""
-    files: list[Path] = []
-    for sub in IN_CORPUS_SUBPATHS:
-        target = repo_root / sub
-        if target.is_file():
-            files.append(target)
-        elif target.is_dir():
-            files.extend(p for p in target.rglob("*") if p.is_file())
-    return files
 
 
 def probe_matches(probe: str, files: list[Path]) -> list[tuple[Path, int, str]]:
@@ -135,23 +66,15 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    corpus_dir = resolve_corpus_dir(args.corpus_dir)
-    if corpus_dir is None:
-        print("ERROR: no /tmp/dpr-corpus-* found. Run `make index-corpus`, or pass "
-              "--corpus-dir for local dev.")
-        return 1
-    if not corpus_dir.is_dir():
-        print(f"ERROR: --corpus-dir {corpus_dir} is not a directory")
-        return 1
+    snapshot = resolve_snapshot(args.corpus_dir)
 
-    projects = corpus_projects()
-    repos = []
-    for name in projects:
-        repo = corpus_dir / name
+    repos: list[tuple[Path, str]] = []
+    for name in corpus_projects():
+        repo = snapshot / name
         if not repo.is_dir():
-            print(f"ERROR: corpus repo {name!r} not found under {corpus_dir}")
+            print(f"ERROR: corpus repo {name!r} not found under {snapshot}")
             return 1
-        repos.append(repo)
+        repos.append((repo, name))
 
     data = yaml.safe_load(GOLDEN_SET.read_text())
     adversarials = [q for q in data if q.get("intent") == "out-of-scope"]
@@ -171,8 +94,8 @@ def main() -> int:
         for probe in probes:
             checked += 1
             all_hits: list[tuple[Path, int, str]] = []
-            for repo in repos:
-                all_hits.extend(probe_matches(probe, in_corpus_files(repo)))
+            for repo, project in repos:
+                all_hits.extend(probe_matches(probe, in_corpus_files(repo, project)))
             if all_hits:
                 failures += 1
                 print(f"  {qid}: probe {probe!r} MATCHED in-corpus:")

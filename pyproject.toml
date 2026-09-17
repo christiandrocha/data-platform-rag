@@ -48,3 +48,8 @@ select = ["E", "W", "F", "I", "B", "UP"]
 testpaths = ["tests"]
 python_files = "test_*.py"
 asyncio_mode = "auto"
+# The package lives at the repo root, not under src/. Without this, every test
+# module fails to collect with ModuleNotFoundError unless the package has been
+# pip-installed first — which no local setup step does. Fixes `make test` in a
+# bare checkout and in CI alike.
+pythonpath = ["."]

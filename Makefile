@@ -1,4 +1,8 @@
-.PHONY: help bootstrap dev down index-corpus reindex verify-indexes eval eval-ci golden-set-check langfuse-check langfuse-flush lint test precommit deploy
+.PHONY: help bootstrap dev down fetch-corpus index-corpus index-corpus-dry reindex \
+	verify-indexes eval eval-ci golden-set-check golden-set-next \
+	golden-set-next-architecture golden-set-next-comparison-pair \
+	verify-adversarials audit-adversarials langfuse-check langfuse-flush \
+	lint test precommit deploy
 
 # `python` is not a guaranteed name: a Debian-family system without
 # python-is-python3 has only `python3`, and every target below died with
@@ -6,6 +10,12 @@
 # bare and inside an activated venv, where it points at the venv interpreter.
 # Override to pin a specific interpreter: make test PYTHON=.venv/bin/python
 PYTHON ?= python3
+
+# The package lives at the repo root and nothing installs it, so a script run as
+# `python3 scripts/x.py` gets scripts/ on sys.path and not the root. Scripts now
+# import data_platform_rag (ADR-012 moved the in-corpus set into the package),
+# so they need the root. Mirrors `pythonpath = ["."]` in pyproject for pytest.
+export PYTHONPATH := .:$(PYTHONPATH)
 
 help:
 	@echo "data-platform-rag — operational targets"
@@ -16,7 +26,9 @@ help:
 	@echo "  make down             Stop containers"
 	@echo ""
 	@echo "Data pipeline:"
-	@echo "  make index-corpus     Clone repos, chunk, embed, upsert into pgvector"
+	@echo "  make fetch-corpus     Clone, extract in-corpus files, write MANIFEST"
+	@echo "  make index-corpus-dry Chunk the snapshot, report tokens, write nothing"
+	@echo "  make index-corpus     Chunk, embed, upsert into pgvector (slice 2)"
 	@echo "  make reindex          Drop and rebuild vectors (destructive)"
 	@echo "  make verify-indexes   EXPLAIN ANALYZE top queries against baseline"
 	@echo ""
@@ -50,6 +62,14 @@ dev:
 
 down:
 	docker-compose down
+
+# ADR-012: acquisition is split from indexing. fetch-corpus creates the canonical
+# snapshot that the ADR-011 adversarial gate and the Layer 2 auditor both read.
+fetch-corpus:
+	$(PYTHON) scripts/fetch_corpus.py
+
+index-corpus-dry:
+	$(PYTHON) scripts/index_corpus.py --dry-run $(if $(CORPUS_DIR),--corpus-dir $(CORPUS_DIR))
 
 index-corpus:
 	$(PYTHON) scripts/index_corpus.py

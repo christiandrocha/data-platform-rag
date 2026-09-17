@@ -38,6 +38,8 @@ from pathlib import Path
 
 import yaml
 
+from data_platform_rag.indexer.corpus import resolve_snapshot
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from verify_adversarials import corpus_projects, in_corpus_files  # noqa: E402
 
@@ -82,47 +84,6 @@ Note: a former product name is the classic miss. "Delta Live Tables" and
 
 Be specific and short. A human reads this and decides."""
 
-
-def resolve_corpus_dir(explicit: Path | None) -> Path | None:
-    """Canonical location is /tmp/dpr-corpus-*/; an explicit path overrides it.
-
-    CI runs on a GitHub Actions runner with no ~/Documents, so /tmp is the only
-    location that works in both environments and is therefore the default. A
-    local override buys iteration speed at the cost of reproducibility, which is
-    an acceptable trade for dev and not for CI.
-
-    Raises on a missing or empty directory rather than returning it. An empty
-    corpus directory produces a false green: every probe finds nothing, the gate
-    reports success, and the contamination it exists to catch sails through. This
-    is the same failure class as the IN_CORPUS_SUBPATHS = "macros" defect, where
-    a path that matched nothing was skipped in silence.
-    """
-    if explicit is not None:
-        path = explicit.expanduser()
-        if not path.is_dir():
-            raise SystemExit(
-                f"ERROR: --corpus-dir {path} does not exist.\n"
-                "  An absent corpus directory would make every probe pass vacuously.\n"
-                "  Pass a real path, or run `make index-corpus` and drop the override."
-            )
-        if not any(path.iterdir()):
-            raise SystemExit(
-                f"ERROR: --corpus-dir {path} is empty.\n"
-                "  An empty corpus directory produces a FALSE GREEN: every probe finds\n"
-                "  nothing and the gate reports success. Refusing to run."
-            )
-        return path
-    matches = sorted(Path("/tmp").glob("dpr-corpus-*"))
-    if not matches:
-        return None
-    newest = matches[-1]
-    if not any(newest.iterdir()):
-        raise SystemExit(
-            f"ERROR: canonical corpus dir {newest} is empty.\n"
-            "  An empty corpus directory produces a FALSE GREEN. Re-run `make index-corpus`,\n"
-            "  or pass --corpus-dir explicitly for local dev."
-        )
-    return newest
 
 def load_questions(provenance: str | None, qid: str | None) -> list[dict]:
     data = yaml.safe_load(GOLDEN_SET.read_text())
@@ -211,11 +172,7 @@ def main() -> int:
                         help="Print prompts and the estimated cost; call nothing")
     args = parser.parse_args()
 
-    corpus_dir = resolve_corpus_dir(args.corpus_dir)
-    if corpus_dir is None:
-        print("ERROR: no /tmp/dpr-corpus-* found. Run `make index-corpus`, or pass "
-              "--corpus-dir for local dev.")
-        return 1
+    corpus_dir = resolve_snapshot(args.corpus_dir)
 
     questions = load_questions(args.provenance, args.question)
     if args.adversarial:

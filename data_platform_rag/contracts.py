@@ -6,9 +6,10 @@ boundaries. No dict[str, Any] in public APIs. Every new boundary starts here.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AnyUrl, BaseModel, ConfigDict, Field
 
 # ─── Type aliases ────────────────────────────────────────────────────────────
 
@@ -17,6 +18,50 @@ SourceProject = Literal["sdd-kafka-snowflake-2", "sdd-kafka-databricks"]
 SourceType = Literal["adr", "readme", "contract", "macro", "schema"]
 Intent = Literal["decision", "architecture", "comparison", "hybrid"]
 ADRStatus = Literal["accepted", "superseded", "resolved", "planned"]
+
+
+# ─── Corpus snapshot manifest (written at acquisition time) ──────────────────
+#
+# Per ADR-012. The manifest is what makes a score reproducible: it names the
+# exact commit and file bytes a run was measured against. Without it, an eval
+# can index commit X while the adversarial gate greps commit Y and nothing
+# compares them.
+
+
+class CorpusFile(BaseModel):
+    """One extracted in-corpus file, as it exists in the snapshot."""
+
+    model_config = ConfigDict(frozen=True)
+
+    path: str  # relative to the project directory inside the snapshot
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_type: SourceType
+
+
+class CorpusProject(BaseModel):
+    """One corpus repo at one commit, and the files extracted from it."""
+
+    model_config = ConfigDict(frozen=True)
+
+    project: SourceProject
+    # AnyUrl, not HttpUrl: the two corpora are https, but a file:// URL is a
+    # valid clone source, and requiring https would make acquisition testable
+    # only with network access.
+    repo_url: AnyUrl
+    commit_sha: str = Field(pattern=r"^[0-9a-f]{40}$")
+    files: list[CorpusFile] = Field(min_length=1)
+
+
+class CorpusManifest(BaseModel):
+    """MANIFEST.json at the snapshot root. The provenance record of one fetch."""
+
+    model_config = ConfigDict(frozen=True)
+
+    # Present from v1 because slice 2 must store these SHAs beside the indexed
+    # rows, and a format that cannot be versioned cannot be migrated.
+    schema_version: int = 1
+    created_at: datetime
+    projects: list[CorpusProject] = Field(min_length=1)
 
 
 # ─── Chunk metadata (written at index time) ──────────────────────────────────
@@ -40,6 +85,23 @@ class ChunkMetadata(BaseModel):
     keywords: list[str] | None = None
     chunk_index: int = Field(ge=0)
     token_count: int = Field(gt=0)
+
+
+class Chunk(BaseModel):
+    """A chunk ready for embedding and storage: its text plus its metadata.
+
+    Replaces the `Chunk` dataclass that lived in `indexer/chunker.py` and had
+    drifted from `ChunkMetadata` — flat where this is nested, `str` where this is
+    `Literal`, and missing `keywords` entirely (dev-log #1). One shape now, and
+    it matches `RetrievedChunk`, so the same fields survive the round trip from
+    index time to retrieval time.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    content: str = Field(min_length=1)
+    collection: Collection
+    metadata: ChunkMetadata
 
 
 # ─── Retrieval results ───────────────────────────────────────────────────────

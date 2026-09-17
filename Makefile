@@ -1,5 +1,12 @@
 .PHONY: help bootstrap dev down index-corpus reindex verify-indexes eval eval-ci golden-set-check langfuse-check langfuse-flush lint test precommit deploy
 
+# `python` is not a guaranteed name: a Debian-family system without
+# python-is-python3 has only `python3`, and every target below died with
+# "make: python: No such file or directory". `python3` resolves correctly both
+# bare and inside an activated venv, where it points at the venv interpreter.
+# Override to pin a specific interpreter: make test PYTHON=.venv/bin/python
+PYTHON ?= python3
+
 help:
 	@echo "data-platform-rag — operational targets"
 	@echo ""
@@ -45,7 +52,7 @@ down:
 	docker-compose down
 
 index-corpus:
-	python scripts/index_corpus.py
+	$(PYTHON) scripts/index_corpus.py
 
 reindex:
 	docker-compose exec -T postgres psql -U dpr -d data_platform_rag -c "TRUNCATE chunks;"
@@ -55,39 +62,39 @@ verify-indexes:
 	docker-compose exec -T postgres psql -U dpr -d data_platform_rag -f - < sql/99_verify.sql
 
 eval:
-	python scripts/run_evaluation.py
+	$(PYTHON) scripts/run_evaluation.py
 
 eval-ci:
-	python scripts/run_evaluation.py --output .claude/dev/reports/ragas-$$(date +%Y%m%d-%H%M%S).json
+	$(PYTHON) scripts/run_evaluation.py --output .claude/dev/reports/ragas-$$(date +%Y%m%d-%H%M%S).json
 
 golden-set-check:
-	python scripts/validate_golden_set.py
-	python scripts/golden_set_coverage.py
+	$(PYTHON) scripts/validate_golden_set.py
+	$(PYTHON) scripts/golden_set_coverage.py
 
 golden-set-next:
-	@python scripts/golden_set_coverage.py --next
+	@$(PYTHON) scripts/golden_set_coverage.py --next
 
 golden-set-next-architecture:
-	@python scripts/golden_set_coverage.py --next-architecture
+	@$(PYTHON) scripts/golden_set_coverage.py --next-architecture
 
 golden-set-next-comparison-pair:
-	@python scripts/golden_set_coverage.py --next-comparison-pair
+	@$(PYTHON) scripts/golden_set_coverage.py --next-comparison-pair
 
 # Layer 1 of ADR-011: literal contamination probes. Blocking precondition of eval.
 # CORPUS_DIR must hold both corpus clones as subdirectories.
 # CORPUS_DIR is optional: the default is the canonical /tmp/dpr-corpus-*.
 verify-adversarials:
-	python scripts/verify_adversarials.py $(if $(CORPUS_DIR),--corpus-dir $(CORPUS_DIR))
+	$(PYTHON) scripts/verify_adversarials.py $(if $(CORPUS_DIR),--corpus-dir $(CORPUS_DIR))
 
 # Layer 2 of ADR-011: Opus semantic audit of one adversarial. Advisory.
 audit-adversarials:
-	python scripts/audit_questions.py --adversarial --question $(q) $(if $(CORPUS_DIR),--corpus-dir $(CORPUS_DIR))
+	$(PYTHON) scripts/audit_questions.py --adversarial --question $(q) $(if $(CORPUS_DIR),--corpus-dir $(CORPUS_DIR))
 
 langfuse-check:
-	python -c "from data_platform_rag.observability.langfuse_client import get_client; c = get_client(); print('Langfuse client type:', type(c).__name__)"
+	$(PYTHON) -c "from data_platform_rag.observability.langfuse_client import get_client; c = get_client(); print('Langfuse client type:', type(c).__name__)"
 
 langfuse-flush:
-	python -c "from data_platform_rag.observability.langfuse_client import get_client; get_client().flush(); print('flushed')"
+	$(PYTHON) -c "from data_platform_rag.observability.langfuse_client import get_client; get_client().flush(); print('flushed')"
 
 lint:
 	ruff check data_platform_rag tests scripts

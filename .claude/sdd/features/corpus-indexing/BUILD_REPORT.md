@@ -8,7 +8,7 @@
 | DEFINE | [DEFINE.md](DEFINE.md) |
 | DESIGN | [DESIGN.md](DESIGN.md) |
 | Start date | 2026-09-17 |
-| End date | 2026-09-17 — **paused**, see Known gaps |
+| End date | 2026-09-17 |
 | PR | not raised |
 
 ## What was built
@@ -22,6 +22,9 @@
 - `scripts/fetch_corpus.py` — clone, extract, hash, manifest, delete the clone.
 - `contracts.py`: `CorpusFile`, `CorpusProject`, `CorpusManifest`, `Chunk`.
 - `docs/adr/ADR-012-corpus-snapshot-lifecycle.md` (committed earlier, `1b18ab6`).
+- `docs/adr/ADR-007` **Amendment 1** — four rules corrected by first measurement
+  (A tables are not atomic, B contract keys split at list items with a `table:`
+  preamble, C the body budget is computed, D splitting requires packing).
 
 **Changed**
 
@@ -36,13 +39,14 @@
   `PYTHONPATH`.
 - `pyproject.toml` — `pythonpath = ["."]` for pytest.
 
-**Tests**: 36 added (49 → 85). `tests/unit/test_corpus.py` (18),
-`tests/unit/test_chunker.py` (17 with parametrisation),
+**Tests**: 42 added (49 → 91). `tests/unit/test_corpus.py` (18),
+`tests/unit/test_chunker.py` (23 with parametrisation),
 `tests/integration/test_fetch_corpus.py` (6, against local git fixtures — no
 network).
 
 **Measured against the real corpus** at `sdd-kafka-databricks@f1295df9` and
-`sdd-kafka-snowflake-2@82a2e269`: 47 files extracted (31 + 16), 307 chunks.
+`sdd-kafka-snowflake-2@82a2e269`: 47 files extracted (31 + 16), **304 chunks**,
+median 209 tokens, largest assembled chunk 500 — all inside the 512 window.
 
 ## What deviated from design
 
@@ -66,9 +70,8 @@ network).
    `512 - 480 = 32` tokens is always enough for the preamble. It is not:
    `007_pipeline_unification.md` assembled to **514** tokens with a 480-token
    body. The budget is now `min(480, 512 - preamble - 2)`. ADR-007 says the
-   assertion rather than the estimate is the guarantee, so this honours it —
-   but the ADR's stated numbers are now known to be approximate, and that is worth
-   an amendment.
+   assertion rather than the estimate is the guarantee, so this honours it.
+   Recorded in ADR-007 Amendment 1C.
 
 5. **Type-specific splitters run before the paragraph split.** ADR-007 names
    top-level YAML keys and SQL statements explicitly. Splitting on blank lines
@@ -111,20 +114,20 @@ scores.
 
 ## Known gaps at merge time
 
-**Blocking — the feature pauses here by design.** `make index-corpus-dry` fires
-ADR-007 rule 4 on two documents. Both need a human decision (reformat the source,
-or record an explicit exception in ADR-007); neither is a coding task:
+**Resolved after the first report.** The dry run originally fired ADR-007 rule 4
+on `payments.yml` and the snowflake README. Both were resolved by amending
+ADR-007 rather than editing a source repository — the corpora are the projects
+this system documents, and reformatting them to suit their consumer would invert
+that relationship. See Amendment 1A and 1B.
 
-- `sdd-kafka-databricks/contracts/payments.yml` — the `schema` key is **551
-  tokens**. ADR-007's own fallback boundary for contracts is top-level YAML keys,
-  and one key still exceeds the budget. Splitting further means splitting the
-  column list, which contradicts the ADR's rationale that "a data contract read in
-  halves is not a data contract".
-- `sdd-kafka-snowflake-2/README.md` — the `## Stack` section is a **690-token**
-  markdown table, atomic by ADR-007 rule 4.
-
-One chunk sits between the budget and the hard limit, which is expected and fine:
-`008_delete_handling.md [Context]` at 483 tokens.
+**One defect the amendment exposed.** Once the largest README stopped failing
+outright, it produced **165 chunks with a median of 97 tokens, 87 of them under
+100** — embeddings too small to carry meaning and citations too fine-grained to
+answer with. Rule 3 always said "descending only as far as needed"; nothing
+enforced it. Packing adjacent same-anchor units brought that file to 68 chunks and
+the corpus median from 97 to 209 (Amendment 1D). This defect was invisible while
+the file failed rule 4, which is an argument for measuring before building the
+writer rather than after.
 
 **Non-blocking**
 
@@ -149,7 +152,7 @@ One chunk sits between the budget and the hard limit, which is expected and fine
 
 - [x] `ruff check data_platform_rag tests scripts` — All checks passed
 - [ ] `make lint` — **incomplete**: ruff and yamllint clean, `bandit` not installed
-- [x] `make test` — **85 passed** (49 before this feature)
+- [x] `make test` — **91 passed** (49 before this feature)
 - [x] `make fetch-corpus` — 2 projects, 47 files, manifest written, no `.git`
       surviving, full clone deleted
 - [x] `make verify-adversarials` with **no `CORPUS_DIR=` override** — reaches its
@@ -157,7 +160,8 @@ One chunk sits between the budget and the hard limit, which is expected and fine
       has a canonical input
 - [x] `grep -c IN_CORPUS_SUBPATHS scripts/verify_adversarials.py` — **0**
 - [x] Inventory staleness check — "inventory matches the snapshot", 21/21 ADRs
-- [ ] `make index-corpus-dry` — **exits 1** on the two rule-4 documents above.
-      Correct behaviour, and the reason this feature is paused rather than done
+- [x] `make index-corpus-dry` — clean. 304 chunks, every one inside the 512-token
+      window, largest 500. Six chunks sit between the 480 budget and the hard
+      limit, which is the preamble headroom working as intended
 - [ ] `make eval` — not applicable, no retrieval exists
 - [ ] `make verify-indexes` — not applicable, nothing was written to Postgres

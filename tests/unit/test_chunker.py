@@ -154,3 +154,59 @@ def test_a_body_within_budget_is_never_split():
         f"## Only\n{filler(BODY_BUDGET_TOKENS - 20)}\n"
     )
     assert len(chunk_document(doc(content), words)) == 1
+
+
+# ─── Amendment 1 (2026-09-17) ────────────────────────────────────────────────
+
+
+def test_a_table_is_split_at_a_row_boundary_with_the_header_repeated():
+    """Amendment 1A: a table is not atomic — halves stay valid tables."""
+    rows = "\n".join(f"| {filler(60)} | b | c |" for _ in range(10))
+    content = f"# R\n\n## Stack\n| Layer | Tech | Decision |\n|---|---|---|\n{rows}\n"
+    chunks = chunk_document(doc(content, source_type="readme", path="README.md"), words)
+    assert len(chunks) > 1
+    for chunk in chunks:
+        assert "| Layer | Tech | Decision |" in chunk.content
+        assert "|---|---|---|" in chunk.content
+
+
+def test_a_fenced_block_is_still_atomic():
+    """Amendment 1A narrows rule 4 to fences — it does not remove it."""
+    content = f"# ADR 0019 — x\n\n**Status**: Accepted\n\n## C\n```sql\n{filler(600)}\n```\n"
+    with pytest.raises(OversizeAtomicBlock, match="rule 4"):
+        chunk_document(doc(content), words)
+
+
+def test_an_oversize_contract_key_splits_at_list_items_with_a_table_preamble():
+    """Amendment 1B: a half-schema chunk still names its table and merge key."""
+    items = "\n".join(f"  - {{ name: col_{i}, {filler(20)} }}" for i in range(20))
+    content = f"table:\n  name: payments\n  merge_key: payment_id\n\nschema:\n{items}\n"
+    chunks = chunk_document(doc(content, source_type="contract", path="contracts/p.yml"), words)
+    assert len(chunks) > 1
+    for chunk in chunks:
+        assert "name: payments" in chunk.content
+        assert "merge_key: payment_id" in chunk.content
+
+
+def test_a_contract_within_budget_keeps_one_chunk_and_no_preamble():
+    chunks = chunk_document(
+        doc("table:\n  name: orders\n\nschema:\n  - { name: id }\n", "contract", "contracts/o.yml"),
+        words,
+    )
+    assert len(chunks) == 1
+    assert chunks[0].content.count("name: orders") == 1
+
+
+def test_adjacent_paragraphs_are_packed_back_up_to_the_budget():
+    """Amendment 1D: splitting without packing gave 87 chunks under 100 tokens."""
+    body = "\n\n".join(filler(40) for _ in range(20))
+    content = f"# R\n\n## Long\n{body}\n"
+    chunks = chunk_document(doc(content, source_type="readme", path="README.md"), words)
+    assert len(chunks) < 5
+    assert all(c.metadata.token_count > 100 for c in chunks[:-1])
+
+
+def test_packing_never_merges_across_an_anchor_change():
+    content = "# R\n\n## One\nalpha\n\n## Two\nbeta\n"
+    chunks = chunk_document(doc(content, source_type="readme", path="README.md"), words)
+    assert [c.metadata.source_anchor for c in chunks] == ["One", "Two"]

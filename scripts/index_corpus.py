@@ -109,7 +109,9 @@ def dry_run(snapshot: Path, model_name: str) -> int:
             if tokens > BODY_BUDGET_TOKENS:
                 over_budget.append((f"{doc.source_project}/{doc.source_path}", anchor, tokens))
 
-    largest.sort(reverse=True)
+    # Explicit key: an anchor may be None, and two split halves of one table tie
+    # on both token count and path, so the default tuple compare reaches it.
+    largest.sort(key=lambda row: (-row[0], row[1], row[2] or ""))
     print(f"\n{total_units} chunk(s) from {len(manifest.projects)} project(s)")
     print(f"\nLargest 10 assembled chunks (hard limit {HARD_LIMIT_TOKENS}):")
     for tokens, path, anchor in largest[:10]:

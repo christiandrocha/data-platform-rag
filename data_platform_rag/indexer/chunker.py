@@ -112,7 +112,7 @@ def _split_paragraphs(unit: _Unit) -> list[_Unit]:
 
 
 def _is_atomic(body: str) -> bool:
-    """A fenced code block or a markdown table cannot be split further.
+    """A fenced code block cannot be split further. Tables can — Amendment 1A.
 
     Heading lines are ignored before the test. A section body always opens with
     its own `## …` line, so testing the literal first line would classify a
@@ -121,11 +121,7 @@ def _is_atomic(body: str) -> bool:
     rule 4 requires a human to look at.
     """
     lines = [ln for ln in body.splitlines() if ln.strip() and not ln.lstrip().startswith("#")]
-    if not lines:
-        return False
-    if _FENCE.match(lines[0]):
-        return True
-    return sum(1 for ln in lines if ln.lstrip().startswith("|")) >= len(lines) / 2
+    return bool(lines) and bool(_FENCE.match(lines[0]))
 
 
 def _has_content(body: str) -> bool:
@@ -147,22 +143,79 @@ def _pop_lead(units: list[_Unit]) -> tuple[_Unit | None, list[_Unit]]:
     return None, units
 
 
-def _split_yaml_keys(unit: _Unit) -> list[_Unit]:
-    """Split a YAML document at its top-level keys, per ADR-007's oversize note.
+def _is_table(body: str) -> bool:
+    lines = [ln for ln in body.splitlines() if ln.strip() and not ln.lstrip().startswith("#")]
+    return bool(lines) and sum(1 for ln in lines if ln.lstrip().startswith("|")) >= len(lines) / 2
 
-    A top-level key is an unindented, non-comment line; everything indented under
-    it belongs to it. `contract` files are meant to be one chunk each, and all but
-    one are — this is the escape hatch the ADR already specifies for the one that
-    is not.
+
+def _split_table(unit: _Unit) -> list[_Unit]:
+    """Halve a markdown table at a row boundary, repeating header and separator.
+
+    ADR-007 Amendment 1A: a table is not atomic. Split between rows with the
+    header repeated, each half is still a valid table and nothing is corrupted —
+    unlike a fenced code block, which has no such boundary.
     """
+    lead = [ln for ln in unit.body.splitlines() if not ln.lstrip().startswith("|")]
+    rows = [ln for ln in unit.body.splitlines() if ln.lstrip().startswith("|")]
+    if len(rows) < 5:  # header + separator + at least 3 rows to be worth halving
+        return [unit]
+
+    header, separator, data = rows[0], rows[1], rows[2:]
+    half = len(data) // 2
+    first = lead + [header, separator] + data[:half]
+    second = [header, separator] + data[half:]
+    return [
+        _Unit(unit.anchor, "\n".join(first).strip()),
+        _Unit(unit.anchor, "\n".join(second).strip()),
+    ]
+
+
+def _yaml_key_blocks(body: str) -> list[_Unit]:
+    """Group a YAML document by top-level key; everything indented belongs to it."""
     blocks: list[tuple[str | None, list[str]]] = []
-    for line in unit.body.splitlines():
+    for line in body.splitlines():
         starts_key = line[:1].isalpha() and ":" in line
         if starts_key or not blocks:
             blocks.append((line.split(":", 1)[0].strip() if starts_key else None, [line]))
         else:
             blocks[-1][1].append(line)
-    return [_Unit(key, "\n".join(body).strip()) for key, body in blocks if "".join(body).strip()]
+    return [_Unit(key, "\n".join(b).strip()) for key, b in blocks if "".join(b).strip()]
+
+
+def _split_yaml(unit: _Unit) -> list[_Unit]:
+    """Split a YAML contract: by top-level key, then by list item within a key.
+
+    ADR-007 Amendment 1B. The Decision's oversize note already splits a contract
+    at top-level keys; `payments.yml` has one key, `schema`, that still exceeds
+    the budget at 551 tokens. Its 31 list items are the next boundary, and each
+    resulting sub-chunk carries the `table:` block as preamble so it still says
+    which table it describes.
+    """
+    blocks = _yaml_key_blocks(unit.body)
+    if len(blocks) > 1:
+        return blocks
+
+    lines = unit.body.splitlines()
+    key_line = lines[0] if lines and ":" in lines[0] else None
+    items = [i for i, ln in enumerate(lines) if ln.lstrip().startswith("- ")]
+    if len(items) < 4:
+        return [unit]
+
+    cut = items[len(items) // 2]
+    head = lines[:cut]
+    tail = ([key_line] if key_line else []) + lines[cut:]
+    return [
+        _Unit(unit.anchor, "\n".join(head).strip()),
+        _Unit(unit.anchor, "\n".join(tail).strip()),
+    ]
+
+
+def _contract_preamble(content: str) -> str:
+    """The `table:` block of a contract, used as preamble when it is split."""
+    for block in _yaml_key_blocks(content):
+        if block.anchor == "table":
+            return block.body
+    return ""
 
 
 def _split_sql_statements(unit: _Unit) -> list[_Unit]:
@@ -177,6 +230,29 @@ def _split_sql_statements(unit: _Unit) -> list[_Unit]:
     if current and "\n".join(current).strip():
         statements.append("\n".join(current).strip())
     return [_Unit(unit.anchor, s) for s in statements if s]
+
+
+def _pack(units: list[_Unit], count: TokenCounter, budget: int) -> list[_Unit]:
+    """Merge adjacent same-anchor units back up to the budget.
+
+    ADR-007 rule 3 descends "only as far as needed", and splitting alone does not
+    honour that: a 600-token section broken at blank lines yields every paragraph
+    as its own chunk. Measured on `sdd-kafka-snowflake-2/README.md`, that gave 165
+    chunks with a median of 97 tokens and 87 of them under 100 — embeddings too
+    small to carry meaning, and citations too fine-grained to be useful.
+
+    Only units under the same anchor merge, so a chunk never spans two headings
+    and `source_anchor` stays true.
+    """
+    packed: list[_Unit] = []
+    for unit in units:
+        if packed and packed[-1].anchor == unit.anchor:
+            merged = f"{packed[-1].body}\n\n{unit.body}"
+            if count(merged) <= budget:
+                packed[-1] = _Unit(unit.anchor, merged)
+                continue
+        packed.append(unit)
+    return packed
 
 
 def _budget(preamble: str, count: TokenCounter) -> int:
@@ -237,6 +313,12 @@ def _fit(
         paragraphs = _split_paragraphs(unit)
         if len(paragraphs) > 1:
             out.extend(_fit(paragraphs, count, source_path, budget, extra))
+            continue
+
+        # ADR-007 Amendment 1A: a table is not atomic — it splits at a row
+        # boundary with the header repeated, and each half is still a table.
+        if _is_table(unit.body) and len(halves := _split_table(unit)) > 1:
+            out.extend(_fit(halves, count, source_path, budget, extra))
             continue
 
         # Nothing left to split on.
@@ -326,13 +408,36 @@ def chunk_document(doc: RawDocument, count_tokens: TokenCounter) -> list[Chunk]:
             if count_tokens(remainder) > 5:
                 sections.insert(0, _Unit(None, remainder))
         units = _fit(sections, count_tokens, doc.source_path, _budget(preamble, count_tokens))
+    elif doc.source_type == "contract":
+        whole = _Unit(None, doc.content.strip())
+        if count_tokens(whole.body) <= BODY_BUDGET_TOKENS:
+            units = [whole]
+        else:
+            # Amendment 1B: a split contract carries its `table:` block as
+            # preamble, so a half-schema chunk still names the table and its
+            # merge key. The block is then not emitted as a chunk of its own.
+            preamble = _contract_preamble(doc.content)
+            units = [
+                u
+                for u in _fit(
+                    [whole],
+                    count_tokens,
+                    doc.source_path,
+                    _budget(preamble, count_tokens),
+                    _split_yaml,
+                )
+                if u.anchor != "table"
+            ]
     else:
-        # contract, macro: one unit per file, still subject to the oversize rule.
-        # ADR-007 names the fallback boundary for each when the rule does fire.
-        extra = _split_yaml_keys if doc.source_type == "contract" else _split_sql_statements
+        # macro: one unit per file, split at statement boundaries if oversize.
         units = _fit(
-            [_Unit(None, doc.content.strip())], count_tokens, doc.source_path, extra=extra
+            [_Unit(None, doc.content.strip())],
+            count_tokens,
+            doc.source_path,
+            extra=_split_sql_statements,
         )
+
+    units = _pack(units, count_tokens, _budget(preamble, count_tokens))
 
     chunks: list[Chunk] = []
     for index, unit in enumerate(units):

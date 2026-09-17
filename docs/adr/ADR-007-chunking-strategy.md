@@ -129,6 +129,88 @@ The same rule applies to README sections and Schema Registry subjects.
 to fire; if it does, the file is split at top-level YAML keys or at statement
 boundaries respectively.
 
+## Amendment 1 (2026-09-17) — three rules corrected by first measurement
+
+The first `make index-corpus-dry` against the real corpus
+(`sdd-kafka-databricks@f1295df9`, `sdd-kafka-snowflake-2@82a2e269`, 47 files,
+307 chunks) fired rule 4 on two documents and produced one assembled chunk over
+the hard limit. All three are errors in this ADR's rules, not in the corpus, and
+all three are resolved here rather than by editing a source repository. The
+corpora are the projects this system documents; reformatting them to suit their
+consumer would invert that relationship.
+
+### A. Tables are not atomic. Fenced code blocks are.
+
+Rule 4 treated any unsplittable block alike. The evidence says the two are
+different:
+
+- `sdd-kafka-snowflake-2/README.md`, section `## Stack` — **696 tokens**, a
+  17-line markdown table. Split at a row boundary with the header repeated, the
+  halves are **368** and **344** tokens, and each is still a valid, readable
+  table. Nothing is corrupted.
+- A fenced code block has no such boundary. Splitting SQL in the middle of a
+  `CREATE TABLE` destroys its meaning, and the reader cannot tell.
+
+**Rule 4 is narrowed to fenced code blocks.** A markdown table over budget is
+split at row boundaries, and **every part repeats the header and separator
+rows**. A table part is a chunk like any other and is asserted against the same
+512-token limit.
+
+### B. A contract's oversize key splits at its list items, with a preamble.
+
+`sdd-kafka-databricks/contracts/payments.yml` is 891 tokens: `table` 39,
+**`schema` 551**, `quality` 243, `storage` 44, `schema_evolution` 22. The
+Decision's oversize note already splits a contract at top-level keys, and one key
+still exceeds the budget on its own.
+
+The principle that "a data contract read in halves is not a data contract" is
+already conceded the moment a contract is split by key at all. What made ADRs
+survivable when split was the preamble, and the same answer applies here.
+
+**An oversize top-level key is split at its YAML list-item boundaries, and every
+resulting sub-chunk carries the contract's `table:` block as preamble** — name,
+layers, source, kafka topic and merge key, about 39 tokens. A half-schema chunk
+then still says which table it describes and how that table is keyed, which is
+the standard rule 2 sets for a sub-chunk: it stands alone when retrieved.
+
+### C. The 480-token body budget is not a constant.
+
+The oversize rule set the body budget at 480 "leaving headroom under the 512
+window for the preamble", which assumes 32 tokens is always enough. It is not.
+`sdd-kafka-databricks/docs/adr/007_pipeline_unification.md` has a long title, and
+a body inside the 480-token budget assembled to **514 tokens** — over the hard
+limit, caught by the assertion exactly as this ADR intended.
+
+**The body budget is `min(480, 512 − preamble − 2)`**, computed per document from
+the real preamble rather than an estimate of it. The Consequences note that the
+preamble "costs roughly 25-30 tokens per sub-chunk" is an average, not a bound.
+
+This changes no guarantee: the assembled-chunk assertion against 512 was always
+the real one, and this amendment only stops it firing on documents that rule 3
+could have split further.
+
+### D. "Only as far as needed" requires packing, not just splitting.
+
+Rule 3 says the hierarchy is applied "descending only as far as needed". Splitting
+alone does not achieve that. A 600-token section broken at blank lines yields
+*every* paragraph as its own chunk, however small.
+
+Measured, once A and B let the largest README through:
+`sdd-kafka-snowflake-2/README.md` produced **165 chunks, median 97 tokens, 87 of
+them under 100**. Chunks that small carry too little context for a dense vector to
+mean anything, and a citation pointing at one paragraph is not a useful answer.
+The defect was invisible while that file failed rule 4 outright.
+
+**After splitting, adjacent units under the same anchor are merged back up to the
+budget.** Merging stops at an anchor change, so a chunk never spans two headings
+and `source_anchor` stays true. With packing, the same README yields 68 chunks and
+the corpus-wide median rises from 97 to **209 tokens**.
+
+This is a restatement of rule 3, not a new rule: descending further than needed
+was always forbidden, and nothing previously enforced it.
+
+---
+
 ## Consequences
 
 **Positive**:

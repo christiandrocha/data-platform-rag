@@ -1,5 +1,5 @@
 .PHONY: help bootstrap reset-db dev down fetch-corpus index-corpus index-corpus-dry \
-	index-corpus-verify reindex \
+	index-corpus-verify reindex ask retrieval-recall \
 	verify-indexes eval eval-ci golden-set-check golden-set-next \
 	golden-set-next-architecture golden-set-next-comparison-pair \
 	verify-adversarials audit-adversarials langfuse-check langfuse-flush \
@@ -40,6 +40,10 @@ help:
 	@echo "  make index-corpus     Chunk, embed, write into pgvector"
 	@echo "  make index-corpus-verify  Assert indexed corpus == verified corpus"
 	@echo "  make reindex          Re-embed and rewrite everything (--force)"
+	@echo ""
+	@echo "Retrieval:"
+	@echo "  make ask q=\"...\"      Retrieve and print ranked chunks (no LLM)"
+	@echo "  make retrieval-recall Source recall at k over the golden set (ADR-014)"
 	@echo "  make index-corpus     Chunk, embed, upsert into pgvector (slice 2)"
 	@echo "  make reindex          Drop and rebuild vectors (destructive)"
 	@echo "  make verify-indexes   EXPLAIN ANALYZE top queries against baseline"
@@ -107,6 +111,21 @@ index-corpus-verify:
 # short-circuit that declines to re-embed an unchanged project.
 reindex:
 	$(PYTHON) scripts/index_corpus.py --force $(if $(CORPUS_DIR),--corpus-dir $(CORPUS_DIR))
+
+# Retrieval, by hand. A development instrument, not a product surface: it exists
+# so a golden-set question can be checked against what it actually retrieves.
+#   make ask q="why Snowpipe Streaming?"
+#   make ask q="..." COLLECTIONS=decisions TOP_K=5 FULL=1
+ask:
+	@$(PYTHON) scripts/ask.py $(if $(q),"$(q)",) \
+		$(if $(COLLECTIONS),--collections $(COLLECTIONS)) \
+		$(if $(TOP_K),--top-k $(TOP_K)) \
+		$(if $(FULL),--full)
+
+# ADR-014: source recall at k over the golden set. The project's retrieval metric
+# until RAGAS exists. Writes .claude/dev/reports/retrieval-recall-{timestamp}.json
+retrieval-recall:
+	$(PYTHON) scripts/retrieval_recall.py
 
 verify-indexes:
 	$(COMPOSE) exec -T postgres psql -U dpr -d data_platform_rag -f - < sql/99_verify.sql

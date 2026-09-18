@@ -49,7 +49,7 @@ data-platform-rag/
 ├── CLAUDE.md → AGENTS.md       # Symlink for Claude Code
 ├── README.md                   # Public-facing overview + RAGAS badges + Langfuse public dashboard link
 ├── LICENSE                     # MIT
-├── Makefile                    # 14 operational targets
+├── Makefile                    # 25 operational targets
 ├── pyproject.toml              # ruff + pytest + pydantic/pydantic-settings + langfuse
 ├── docker-compose.yml          # postgres+pgvector for local dev
 ├── Dockerfile                  # streamlit runtime
@@ -165,6 +165,10 @@ make index-corpus               # chunk, embed, write into pgvector (replace by 
 make index-corpus-verify        # assert indexed corpus == verified corpus, write nothing
 make reindex                    # re-embed and rewrite everything (index-corpus --force)
 make verify-indexes             # EXPLAIN ANALYZE the top queries, compare to baseline
+
+# Retrieval
+make ask q="why Snowpipe Streaming?"   # retrieve and print ranked chunks, no LLM
+make retrieval-recall           # source recall at k over the golden set (ADR-014)
 
 # Evaluation
 make eval                       # run RAGAS against golden set, push scores to Langfuse

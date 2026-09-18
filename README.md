@@ -7,7 +7,7 @@
 
 [![RAGAS Faithfulness](https://img.shields.io/badge/RAGAS_faithfulness-pending-lightgrey)](docs/golden-set/)
 [![RAGAS Context Precision](https://img.shields.io/badge/context_precision-pending-lightgrey)](docs/golden-set/)
-[![CI](https://img.shields.io/badge/CI-pending-lightgrey)](.github/workflows/ci.yml)
+[![CI](https://github.com/christiandrocha/data-platform-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/christiandrocha/data-platform-rag/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -127,14 +127,72 @@ Every stage traced in Langfuse. Every query logged in Postgres.
 
 ## Status
 
-**What works**:
-- (to be filled during BUILD phase)
+Last updated 2026-09-18, against `sdd-kafka-snowflake-2@82a2e269` and
+`sdd-kafka-databricks@f1295df9`.
 
-**What is next**:
-- (to be filled during BUILD phase)
+**What works** — every line below is reproducible from a clean checkout:
+
+- `make bootstrap` — Postgres + pgvector, schema and indexes. Create-only and
+  idempotent; the destructive path is `make reset-db` and nothing else runs it.
+- `make fetch-corpus` — shallow-clones both corpus repos, extracts the **47**
+  in-corpus files, writes a `MANIFEST.json` with the commit SHA per project and
+  a sha256 per file, and deletes the clone. The in-corpus file set is defined
+  once, in `indexer/corpus.py`.
+- `make index-corpus-dry` — chunks per ADR-007 (as amended): **304 chunks**,
+  median 209 tokens, largest 500, every one inside the 512-token window.
+- `make index-corpus` — embeds with `bge-small-en-v1.5` and writes **304 rows**,
+  384-dimensional, replacing one project scope per transaction. Re-running is a
+  no-op; `make reindex` re-embeds without ever being able to leave the index
+  empty.
+- `make index-corpus-verify` — asserts *indexed corpus == verified corpus* by
+  comparing `corpus_snapshot` against the manifest. This is the point of
+  ADR-012 and ADR-013: a score can name the commit it was measured against.
+- `make verify-adversarials` — the ADR-011 blocking gate, which now has a
+  canonical input instead of a local path override.
+- `make lint` clean, `make test` **131 passing**, both green in CI.
+
+**What is next**, in dependency order — none of this exists yet:
+
+1. **Retrieval executor.** The RRF query is written, as a SQL constant in
+   `retrieval/hybrid_search.py`. Nothing runs it: there is no function that
+   takes a question and returns chunks.
+2. **Reranking** (ADR-005, still Planned).
+3. **Generation.** The system prompt is versioned in `generation/prompt.py`.
+   There is no Anthropic client and no fallback logic behind it.
+4. **Intent classifier**, then the pipeline that joins the four stages above.
+5. **Langfuse wiring.** Only the no-op fallback exists today.
+6. **Streamlit UI** — currently a placeholder page that says so.
+7. **RAGAS runner** (ADR-008, still Planned), and the golden set from 5 to 50.
 
 **Known gaps and unverified claims**:
-- (to be tracked honestly, following the pattern from `sdd-kafka-snowflake-2`)
+
+- **No answer-quality number exists, because nothing answers yet.** The RAGAS
+  badges read `pending` and will keep reading it until `make eval-ci` has run.
+  No number here comes from an estimate.
+- **The golden set holds 5 of 50 questions.** Any metric computed today would be
+  measured against a tenth of its intended sample.
+- **`ragas.yml` in CI calls `make eval`, which has nothing to evaluate.** Expect
+  that workflow red until step 7 above lands. The `ci.yml` lint and test jobs are
+  green and are the ones that mean something right now.
+- **ADR-004 is still Planned, and it covers two things neither of which is
+  done.** `bge-small-en-v1.5` is the *declared baseline*, chosen by argument and
+  never benchmarked against an alternative. The HNSW parameters (`m = 16`,
+  `ef_construction = 64`) are library defaults, not values tuned against the
+  golden set — which AGENTS.md requires before they can be called tuned.
+- **The HNSW index is proven usable, not proven chosen.** At 304 rows the
+  planner prefers a sequential scan, correctly. `sql/99_verify.sql` forces the
+  index to show it returns the same rows roughly twice as fast; it does not
+  claim the planner picks it.
+- **`topic` and `keywords` are `NULL` on every row.** Extraction has never run.
+  The partial GIN index exists for the day it does.
+- **`adr_id` is not canonicalised** across the three spellings the corpus uses,
+  and is unqualified by project.
+- **The `schema` source type has no producer.** The Schema Registry subjects
+  live in a running registry, not in either repo, so no file in the corpus
+  produces that type (ADR-012).
+- **Re-indexing a project re-embeds all of its chunks**, unchanged ones
+  included: 74–88 s for this corpus. A known limit at this scale, not a hidden
+  one.
 
 ---
 

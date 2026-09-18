@@ -27,6 +27,53 @@ Users ask questions about platform decisions. The system retrieves relevant chun
 
 ## Architecture
 
+**The query path.** The gate is the load-bearing decision of the project: a
+retrieval score below threshold returns the fallback rather than an answer. The
+system is allowed to say it does not know, and it is never allowed to answer
+without a citation (ADR-006).
+
+```mermaid
+graph LR
+    Q([user query]) --> IC[intent classifier<br/>decision · architecture · comparison · hybrid]
+    IC --> HR[hybrid retrieval<br/>pgvector cosine + GIN tsvector · RRF]
+    HR --> C[(top-20 candidates)]
+    C --> RR[reranker<br/>bge-reranker-base cross-encoder]
+    RR --> T{top-3 above<br/>threshold?}
+    T -- no --> FB([out of scope<br/>LinkedIn redirect])
+    T -- yes --> G[Claude Sonnet<br/>system-prompt-constrained]
+    G --> A([answer + cited chunks<br/>project · ADR-id · section])
+    class FB gate;
+    classDef gate fill:#fdf0d5,stroke:#c8922e,color:#4a3610;
+```
+
+**The indexing path.** Offline, not runtime. The corpus is two external repos;
+this repo is never indexed into itself. Provenance is the point of the second
+table: `corpus_snapshot` records the commit SHA and the embedding model that
+produced every row, so *indexed corpus == verified corpus* is a query rather
+than a promise (ADR-012, ADR-013).
+
+```mermaid
+graph LR
+    R[(2 corpus repos<br/>21 ADRs · 2 READMEs · 24 contracts + macros)] --> F[make fetch-corpus<br/>extract · sha256 · MANIFEST]
+    F --> S[(snapshot<br/>47 files)]
+    S --> CH[chunker<br/>ADR-007 per source type]
+    CH --> EM[bge-small-en-v1.5<br/>384-dim · normalised]
+    EM --> W[writer<br/>replace by scope · one txn per project]
+    W --> DB[(chunks · 304 rows<br/>HNSW + GIN)]
+    W --> CS([corpus_snapshot<br/>commit SHA · model])
+    class CS gate;
+    classDef gate fill:#fdf0d5,stroke:#c8922e,color:#4a3610;
+```
+
+**What is observed.** Every query produces one Langfuse trace with a child span
+per stage, and one row in Postgres `query_log`. The two are deliberately not the
+same store: `query_log` is the source of truth for analytics, Langfuse for
+observability and scoring. RAGAS scores from evaluation runs attach to the same
+trace that produced the query, so eval and production share one score system.
+
+<details>
+<summary>Same diagram as plain text</summary>
+
 ```
 User query
     │
@@ -50,6 +97,8 @@ Answer + cited source chunks (with metadata: project, ADR-id, section)
 
 Every stage traced in Langfuse. Every query logged in Postgres.
 ```
+
+</details>
 
 ---
 

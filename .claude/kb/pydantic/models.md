@@ -87,9 +87,51 @@ class RAGASReport(BaseModel):
 
 | Model | Written by | Read by |
 |-------|-----------|---------|
+| CorpusFile / CorpusProject / CorpusManifest | scripts/fetch_corpus.py | indexer/corpus.py, scripts/index_corpus.py |
+| IndexedSnapshot | indexer/writer.py | scripts/index_corpus.py (`--verify`, short-circuit) |
+| IndexRunReport | scripts/index_corpus.py | the CLI's own output |
+| Chunk | indexer/chunker.py | indexer/writer.py |
 | ChunkMetadata | indexer/writer.py | retrieval/hybrid_search.py, UI |
 | RetrievedChunk | retrieval/hybrid_search.py | retrieval/reranker.py |
 | RerankedChunk | retrieval/reranker.py | generation/client.py, UI |
 | IntentClassification | retrieval/intent_classifier.py | pipeline orchestration |
 | AnswerResult | generation/pipeline.py | UI, Langfuse trace metadata |
 | RAGASReport | evaluation/ragas_runner.py | CI, dashboard, Langfuse scores |
+
+
+## Corpus provenance (ADR-013)
+
+`CorpusManifest` is the on-disk record of a fetch; `IndexedSnapshot` is the
+database's record of what was indexed from it. The pair is what makes
+*indexed corpus == verified corpus* an executable comparison rather than a
+promise, and `make index-corpus-verify` is that comparison.
+
+```python
+class IndexedSnapshot(BaseModel):
+    """One project's provenance row, as written to corpus_snapshot."""
+    model_config = ConfigDict(frozen=True)
+
+    source_project: SourceProject
+    repo_url: AnyUrl
+    commit_sha: str = Field(pattern=r"^[0-9a-f]{40}$")
+    file_count: int = Field(gt=0)
+    manifest_created_at: datetime
+    manifest_schema_version: int = Field(ge=1)
+    embedding_model: str = Field(min_length=1)
+    embedding_dim: int = Field(gt=0)
+    chunk_count: int = Field(ge=0)
+
+    def is_current_for(self, commit_sha: str, embedding_model: str) -> bool:
+        ...
+```
+
+Two things about this model are load-bearing rather than decorative:
+
+- **`embedding_model` is part of the identity of an index.** A `VECTOR(384)`
+  column accepts vectors from any 384-dimensional model, so without this field a
+  corpus embedded half with one model and half with another is indistinguishable
+  from a healthy one. It is included in `is_current_for`, which is why changing
+  `settings.embedding_model` forces a re-embed instead of a silent mixture.
+- **`commit_sha` is a strict 40-character lower-case pattern.** An abbreviated or
+  upper-case SHA would not compare equal to the manifest's, and the comparison is
+  the entire point of the model.

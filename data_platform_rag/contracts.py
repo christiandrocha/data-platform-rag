@@ -64,6 +64,62 @@ class CorpusManifest(BaseModel):
     projects: list[CorpusProject] = Field(min_length=1)
 
 
+# ─── Indexed corpus provenance (written at index time) ───────────────────────
+#
+# Per ADR-013. `CorpusManifest` above is the on-disk record of a fetch; these are
+# the database's record of what was actually indexed from it. The pair is what
+# makes `indexed corpus == verified corpus` an executable comparison rather than
+# a promise.
+
+
+class IndexedSnapshot(BaseModel):
+    """One project's provenance row, as written to `corpus_snapshot`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    source_project: SourceProject
+    repo_url: AnyUrl
+    commit_sha: str = Field(pattern=r"^[0-9a-f]{40}$")
+    file_count: int = Field(gt=0)
+    manifest_created_at: datetime
+    manifest_schema_version: int = Field(ge=1)
+    # Which embedding space the vectors live in. A VECTOR(384) column accepts
+    # vectors from any 384-dimensional model, so the model name is the only thing
+    # that distinguishes a healthy index from two embedding spaces mixed together.
+    embedding_model: str = Field(min_length=1)
+    embedding_dim: int = Field(gt=0)
+    chunk_count: int = Field(ge=0)
+
+    def is_current_for(self, commit_sha: str, embedding_model: str) -> bool:
+        """Whether a re-index would be a no-op: same commit, same model.
+
+        The short-circuit key. Deliberately includes the model, so that changing
+        `settings.embedding_model` forces a re-embed instead of leaving half the
+        corpus in the old embedding space.
+        """
+        return self.commit_sha == commit_sha and self.embedding_model == embedding_model
+
+
+class IndexRunReport(BaseModel):
+    """What one `make index-corpus` invocation did. The CLI's return value.
+
+    Also what `--verify` returns, with `written` empty: verification asks the same
+    question indexing answers, so it reports in the same shape.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    snapshot_root: str
+    written: list[IndexedSnapshot] = Field(default_factory=list)
+    skipped: list[SourceProject] = Field(default_factory=list)
+    embedding_model: str
+    duration_seconds: float = Field(ge=0.0)
+
+    @property
+    def chunks_written(self) -> int:
+        return sum(snapshot.chunk_count for snapshot in self.written)
+
+
 # ─── Chunk metadata (written at index time) ──────────────────────────────────
 
 

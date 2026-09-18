@@ -2,12 +2,16 @@
 truth for all inter-module data shapes.
 """
 
+from datetime import UTC, datetime
+
 import pytest
 from pydantic import ValidationError
 
 from data_platform_rag.contracts import (
     AnswerResult,
     ChunkMetadata,
+    IndexedSnapshot,
+    IndexRunReport,
     IntentClassification,
     RAGASAggregate,
     RAGASReport,
@@ -169,3 +173,86 @@ def test_ragas_aggregate_requires_positive_n():
             fallback_accuracy=1.0,
             reports=[],
         )
+
+
+# ─── Corpus provenance (ADR-013) ─────────────────────────────────────────────
+
+
+def _snapshot(**overrides):
+    fields = {
+        "source_project": "sdd-kafka-databricks",
+        "repo_url": "https://github.com/christiandrocha/sdd-kafka-databricks",
+        "commit_sha": "f" * 40,
+        "file_count": 31,
+        "manifest_created_at": datetime(2026, 9, 18, tzinfo=UTC),
+        "manifest_schema_version": 1,
+        "embedding_model": "BAAI/bge-small-en-v1.5",
+        "embedding_dim": 384,
+        "chunk_count": 168,
+    }
+    fields.update(overrides)
+    return IndexedSnapshot(**fields)
+
+
+def test_indexed_snapshot_accepts_a_full_sha():
+    assert _snapshot().commit_sha == "f" * 40
+
+
+@pytest.mark.parametrize("bad_sha", ["f" * 39, "f" * 41, "F" * 40, "zz" + "f" * 38, ""])
+def test_indexed_snapshot_rejects_a_malformed_sha(bad_sha):
+    """An abbreviated or upper-case SHA would not compare equal to the manifest's."""
+    with pytest.raises(ValidationError):
+        _snapshot(commit_sha=bad_sha)
+
+
+def test_indexed_snapshot_rejects_an_unknown_project():
+    with pytest.raises(ValidationError):
+        _snapshot(source_project="data-platform-rag")
+
+
+def test_indexed_snapshot_rejects_a_negative_chunk_count():
+    with pytest.raises(ValidationError):
+        _snapshot(chunk_count=-1)
+
+
+def test_indexed_snapshot_allows_zero_chunks():
+    """A project that yields no chunks is a data question, not a contract error."""
+    assert _snapshot(chunk_count=0).chunk_count == 0
+
+
+def test_indexed_snapshot_requires_a_model_name():
+    """Empty would defeat the point: the column exists to identify the embedding space."""
+    with pytest.raises(ValidationError):
+        _snapshot(embedding_model="")
+
+
+def test_is_current_for_requires_both_commit_and_model():
+    snapshot = _snapshot()
+    assert snapshot.is_current_for("f" * 40, "BAAI/bge-small-en-v1.5") is True
+    assert snapshot.is_current_for("a" * 40, "BAAI/bge-small-en-v1.5") is False
+    assert snapshot.is_current_for("f" * 40, "BAAI/bge-base-en-v1.5") is False
+
+
+def test_index_run_report_sums_chunks_written():
+    report = IndexRunReport(
+        snapshot_root="/tmp/dpr-corpus-1",
+        written=[
+            _snapshot(chunk_count=168),
+            _snapshot(source_project="sdd-kafka-snowflake-2", chunk_count=136),
+        ],
+        embedding_model="BAAI/bge-small-en-v1.5",
+        duration_seconds=12.5,
+    )
+    assert report.chunks_written == 304
+
+
+def test_index_run_report_defaults_to_nothing_done():
+    """A --verify run reports in the same shape, with written empty."""
+    report = IndexRunReport(
+        snapshot_root="/tmp/dpr-corpus-1",
+        embedding_model="BAAI/bge-small-en-v1.5",
+        duration_seconds=0.1,
+    )
+    assert report.written == []
+    assert report.skipped == []
+    assert report.chunks_written == 0

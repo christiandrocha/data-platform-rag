@@ -47,6 +47,7 @@ jobs:
           psql -h localhost -U dpr -d data_platform_rag -f sql/00_extensions.sql
           psql -h localhost -U dpr -d data_platform_rag -f sql/01_schema.sql
           psql -h localhost -U dpr -d data_platform_rag -f sql/02_indexes.sql
+          psql -h localhost -U dpr -d data_platform_rag -f sql/03_corpus_snapshot.sql
       - run: pytest -q
         env:
           DATABASE_URL: postgresql://dpr:dpr_ci@localhost:5432/data_platform_rag

@@ -1,3 +1,20 @@
+# `pip install -e .` failed in CI from the first run this repo ever had:
+#
+#   error: Multiple top-level packages discovered in a flat-layout:
+#          ['sql', 'observability', 'data_platform_rag']
+#
+# The package lives at the repo root, and setuptools' flat-layout auto-discovery
+# treats every sibling directory as a candidate package. `sql/` and
+# `observability/` hold no Python at all -- neither has an `__init__.py` -- but
+# discovery refuses to guess and stops. Naming the package explicitly is the fix;
+# a src-layout would be the other one, and would move every import in the repo.
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["data_platform_rag*"]
+
 [project]
 name = "data-platform-rag"
 version = "0.1.0"

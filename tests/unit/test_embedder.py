@@ -7,15 +7,32 @@ texts are unique by construction.
 
 A fake encoder is injected throughout, so the suite needs no model and no
 network — the same posture slice 1's tests took.
+
+`get_settings` is stubbed for the same reason. `Settings` requires
+`anthropic_api_key`, which is read from a gitignored `.env`; a unit test that
+constructs it passes on the author's machine and fails in CI, where no `.env`
+exists. These tests are about caching and batching and have no business needing
+a credential.
 """
 
 from __future__ import annotations
+
+from types import SimpleNamespace
 
 import pytest
 
 from data_platform_rag.indexer import embedder
 
 DIM = 384
+BATCH = 32
+
+
+@pytest.fixture(autouse=True)
+def stub_settings(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
+    """No real Settings, so no `.env` and no credential are needed."""
+    settings = SimpleNamespace(embedding_batch_size=BATCH, embedding_model="stub/model")
+    monkeypatch.setattr(embedder, "get_settings", lambda: settings)
+    return settings
 
 
 class FakeEncoder:
@@ -126,4 +143,4 @@ def test_embed_documents_falls_back_to_configured_batch_size(
 
     monkeypatch.setattr(embedder, "get_model", lambda: Recorder())
     embedder.embed_documents(["a"])
-    assert captured["batch_size"] == embedder.get_settings().embedding_batch_size
+    assert captured["batch_size"] == BATCH

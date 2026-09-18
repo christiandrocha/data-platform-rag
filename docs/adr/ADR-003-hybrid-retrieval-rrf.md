@@ -65,3 +65,57 @@ their score (the missing side counts as rank infinity → contributes zero).
 `sql/99_verify.sql` includes an EXPLAIN ANALYZE baseline for the hybrid
 query. Query plan must show both `idx_chunks_embedding_hnsw` and
 `idx_chunks_content_tsv_gin` in use.
+
+---
+
+## Amendment 1 — 2026-09-18, corrected by first execution
+
+The query implementing this ADR had never been run. Executing it for the first
+time, during the `retrieval` feature, exposed one arithmetic drift from what this
+ADR specifies. Recorded here rather than by superseding, following the ADR-007
+Amendment 1 precedent.
+
+### A. The missing side contributed a sentinel, not zero
+
+**This ADR states** that a chunk appearing in only one ranked list has the
+missing side count "as rank infinity → contributes zero".
+
+**The implementation used** `COALESCE(dense_rank, 999)`, so a missing side
+contributed `1 / (60 + 999) = 0.000944`. A rank-1 contribution is
+`1 / (60 + 1) = 0.016393`, so the sentinel was worth **5.8 % of a top rank** —
+a constant bonus applied to every one-sided match, tilting them as a group
+against chunks that genuinely appeared in both lists.
+
+**Corrected to** `COALESCE(1.0 / (60 + rank), 0)` per side: the coalesce now
+wraps the contribution rather than the rank, so an absent side contributes
+exactly zero, as this ADR always said it should. `999` is gone; it read like a
+limit and behaved like a bias.
+
+Asserted in `tests/integration/test_hybrid_search_postgres.py`, which computes
+the expected fused score by hand for a chunk ranked by the sparse side alone.
+
+### B. Not amended, but recorded: the sparse side is inert for real questions
+
+Measured against the golden set on the same day, and **left as-is deliberately**,
+because changing it is a retrieval-strategy decision that needs its own ADR
+rather than an amendment to this one.
+
+`plainto_tsquery` conjoins every term. For a natural-language question it
+therefore demands that one chunk contain all of them:
+
+```
+plainto_tsquery('english', 'Why did the Snowflake project choose Snowpipe
+Streaming over the classic file-based Snowpipe?')
+  → 'snowflak' & 'project' & 'choos' & 'snowpip' & 'stream'
+    & 'classic' & 'file-bas' & 'file' & 'base' & 'snowpip'
+  → 0 chunks
+```
+
+Across the five golden-set questions, the sparse side matched **0 chunks for
+four of them**, and 2 for the fifth. `websearch_to_tsquery` behaves identically.
+OR-joining the lexemes matches 158–211 of 304 chunks instead.
+
+The consequence is that this project's "hybrid" retrieval is, in practice,
+**dense-only for question-shaped input**, and has been since the query was
+written. The fusion machinery is correct and the sparse half is simply never
+populated. See the `retrieval` BUILD_REPORT for the measurement.

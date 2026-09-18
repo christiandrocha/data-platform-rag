@@ -37,10 +37,9 @@ graph LR
     Q([user query]) --> IC[intent classifier<br/>decision · architecture · comparison · hybrid]
     IC --> HR[hybrid retrieval<br/>pgvector cosine + GIN tsvector · RRF]
     HR --> C[(top-20 candidates)]
-    C --> RR[reranker<br/>bge-reranker-base cross-encoder]
-    RR --> T{top-3 above<br/>threshold?}
-    T -- no --> FB([out of scope<br/>LinkedIn redirect])
-    T -- yes --> G[Claude Sonnet<br/>system-prompt-constrained]
+    C --> RR[reranker<br/>bge-reranker-base cross-encoder · top-3]
+    RR -.below threshold · never an uncited answer.- FB([out of scope<br/>LinkedIn redirect])
+    RR --> G[Claude Sonnet<br/>system-prompt-constrained]
     G --> A([answer + cited chunks<br/>project · ADR-id · section])
     class FB gate;
     classDef gate fill:#fdf0d5,stroke:#c8922e,color:#4a3610;

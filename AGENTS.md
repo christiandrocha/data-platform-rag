@@ -17,7 +17,7 @@
 - **Observability**: Langfuse (cloud free tier initially) — traces every query, tracks Claude cost, receives RAGAS scores as feedback
 - **Evaluation**: RAGAS framework — golden set of 50 questions, runs in CI on every push, scores pushed to Langfuse
 - **UI**: Streamlit
-- **Orchestration**: Makefile (14 targets: bootstrap, index, eval, dev, deploy, and observability targets)
+- **Orchestration**: Makefile (25 targets: bootstrap, index, eval, dev, deploy, and observability targets)
 - **Quality**: ruff, pytest, yamllint, bandit, pre-commit
 - **CI/CD**: GitHub Actions (lint, test, ragas, streamlit deploy)
 - **Methodology**: AgentSpec/SDD — six-phase workflow (brainstorm → define → design → build → iterate → ship)
@@ -154,14 +154,16 @@ phase artifacts. See `.claude/sdd/architecture/WORKFLOW_CONTRACTS.yaml`.
 ```bash
 # Environment
 make bootstrap                  # start postgres+pgvector, run migrations, seed extensions
+make reset-db                   # DESTRUCTIVE: drop all tables (the only path to a DROP)
 make dev                        # run streamlit locally against local db
 make down                       # stop containers
 
 # Data pipeline
 make fetch-corpus               # clone, extract in-corpus files, write MANIFEST, delete clone
 make index-corpus-dry           # chunk the snapshot per ADR-007, report tokens, write nothing
-make index-corpus               # chunk, embed, upsert into pgvector (slice 2, not yet built)
-make reindex                    # drop and rebuild vectors (destructive)
+make index-corpus               # chunk, embed, write into pgvector (replace by scope, ADR-013)
+make index-corpus-verify        # assert indexed corpus == verified corpus, write nothing
+make reindex                    # re-embed and rewrite everything (index-corpus --force)
 make verify-indexes             # EXPLAIN ANALYZE the top queries, compare to baseline
 
 # Evaluation
@@ -224,6 +226,16 @@ What an agent working on this repo must **NEVER** do:
   drifts from the index, and a gate wider than the index over-blocks (ADR-012).
 - **Never commit generated embeddings as JSON dumps.** Embeddings live in
   Postgres. Reindex is idempotent.
+- **Never write chunks without their provenance.** Every row in `chunks` carries
+  a `snapshot_id` into `corpus_snapshot`, which records the commit SHA and the
+  embedding model that produced it. Indexing **replaces a whole project scope in
+  one transaction** — never `ON CONFLICT DO UPDATE`, which leaves orphan rows
+  when a later commit produces fewer chunks, and an orphan is retrievable text
+  that is no longer in the corpus (ADR-013).
+- **Never put a `DROP` in the bootstrap path.** `sql/00`–`03` are create-only and
+  idempotent; every destructive statement lives in `sql/90_reset.sql`, reached
+  only by `make reset-db`. `make bootstrap` must stay safe to run against a
+  populated database (ADR-013).
 - **Never skip HNSW index tuning.** Default parameters are baseline. Tuning
   ADR (`ADR-004`) must justify chosen values against the golden set.
 - **Never write to `.claude/sdd/archive/`.** Read-only history of superseded

@@ -3,13 +3,13 @@
 -- Rationale: 150-500 chunks is too small to justify partitioning. Single table + collection column
 -- keeps queries simple and lets PostgreSQL query planner optimize with a single index strategy.
 
--- Drop for clean rebuilds during development
--- Comment out in production migrations
-DROP TABLE IF EXISTS chunks CASCADE;
-DROP TABLE IF EXISTS query_log CASCADE;
+-- This file is create-only and idempotent. The drops that used to open it moved
+-- to sql/90_reset.sql, reached only by `make reset-db` (ADR-013 section 5):
+-- `make bootstrap` is the documented ordinary way to start the database, and it
+-- must not be able to discard a populated index.
 
 -- Chunks — the indexed knowledge base
-CREATE TABLE chunks (
+CREATE TABLE IF NOT EXISTS chunks (
     id              BIGSERIAL PRIMARY KEY,
     collection      TEXT NOT NULL CHECK (collection IN ('decisions', 'architecture')),
 
@@ -69,7 +69,7 @@ COMMENT ON COLUMN chunks.keywords IS
 
 
 -- Query log — every retrieval attempt, for RAGAS regression + fallback analysis
-CREATE TABLE query_log (
+CREATE TABLE IF NOT EXISTS query_log (
     id                  BIGSERIAL PRIMARY KEY,
     ts                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     query_text          TEXT NOT NULL,

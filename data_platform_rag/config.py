@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     embedding_model: str = "BAAI/bge-small-en-v1.5"
     reranker_model: str = "BAAI/bge-reranker-base"
 
+    # Indexing. embedding_dim is the writer's dimension guard expectation and the
+    # `chunks.embedding` column width, named once here so the two cannot drift.
+    embedding_batch_size: int = Field(default=32, ge=1, le=512)
+    embedding_dim: int = Field(default=384, ge=1)
+
     # Langfuse — optional, no-op if disabled
     langfuse_enabled: bool = False
     langfuse_public_key: str | None = None

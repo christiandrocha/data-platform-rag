@@ -174,6 +174,14 @@ class RetrievedChunk(BaseModel):
     dense_distance: float = Field(ge=0.0)
     sparse_score: float = Field(ge=0.0)
     rrf_score: float = Field(ge=0.0)
+    # Which side actually ranked this chunk, and at what position. None means the
+    # chunk did not appear in that side's top-k at all, which is NOT the same as
+    # scoring zero there: a chunk can have a real sparse score and still fall
+    # outside the sparse top-k. Without these, that distinction is unrecoverable
+    # downstream, and `sparse_score == 0` would have to stand in for it wrongly.
+    # Optional with None defaults, so every existing construction still validates.
+    dense_rank: int | None = Field(default=None, ge=1)
+    sparse_rank: int | None = Field(default=None, ge=1)
 
 
 class RerankedChunk(RetrievedChunk):

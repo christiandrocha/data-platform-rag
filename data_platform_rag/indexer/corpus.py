@@ -21,7 +21,10 @@ from data_platform_rag.contracts import CorpusManifest, SourceProject, SourceTyp
 
 MANIFEST_NAME = "MANIFEST.json"
 SNAPSHOT_GLOB = "dpr-corpus-*"
-SNAPSHOT_PARENT = Path("/tmp")  # noqa: S108 — canonical per AGENTS.md, see ADR-012
+# The canonical snapshot parent, per ADR-012: CI has no ~/Documents, so /tmp is
+# the only path that works in both environments. Not a temp file this process
+# creates unsafely -- fetch_corpus.py owns the timestamped directory under it.
+SNAPSHOT_PARENT = Path("/tmp")  # noqa: S108  # nosec B108
 
 
 @dataclass(frozen=True)

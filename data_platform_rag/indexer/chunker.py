@@ -306,7 +306,9 @@ def _fit(
         # top-level YAML keys and SQL statements explicitly, and splitting on
         # blank lines first would discard those anchors and report a failure
         # against `<document root>` instead of naming the key that overflowed.
-        if extra is not None and len(pieces := extra(unit)) > 1:
+        # `extra` is a local splitter callable; bandit's B610 matches the name
+        # against Django's QuerySet.extra(). No database is involved here.
+        if extra is not None and len(pieces := extra(unit)) > 1:  # nosec B610
             out.extend(_fit(pieces, count, source_path, budget, extra))
             continue
 

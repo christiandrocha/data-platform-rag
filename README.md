@@ -140,7 +140,25 @@ Every stage traced in Langfuse. Every query logged in Postgres.
 
 ## The data platform
 
-The corpus is a two-pipeline reference platform sharing the same CDC substrate:
+**One substrate, two destinations.** The corpus is a two-pipeline reference
+platform. The marked node is the load-bearing part: the same CDC events feed
+both sides, so the two projects differ in governance rather than in input — and
+that is what makes a cross-project question ("how does each project handle CDC
+deletes?") answerable rather than a comparison of apples to oranges.
+
+```mermaid
+graph LR
+    P[(PostgreSQL<br/>source of truth · 20 domains)] --> DBZ[Debezium<br/>WAL logical replication]
+    DBZ --> K[(Kafka<br/>Confluent · Avro)]
+    K --> SF[Snowflake<br/>dbt + Dagster · Streams + Tasks]
+    K --> DB[Databricks<br/>Lakeflow + Unity Catalog · DABs]
+    K -.same events · two governance styles.- SUB([the shared substrate])
+    class SUB substrate;
+    classDef substrate fill:#fdf0d5,stroke:#c8922e,color:#4a3610;
+```
+
+<details>
+<summary>Same diagram as plain text</summary>
 
 ```
              ┌────────────────────────────┐
@@ -162,7 +180,7 @@ The corpus is a two-pipeline reference platform sharing the same CDC substrate:
    └──────────────────┘      └────────────────────┘
 ```
 
-Same input, two destinations, two governance styles — that shared substrate is what makes cross-project comparison questions ("How does each project handle CDC deletes?") answerable and meaningful.
+</details>
 
 ---
 

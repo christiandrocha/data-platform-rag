@@ -171,9 +171,14 @@ Last updated 2026-09-18, against `sdd-kafka-snowflake-2@82a2e269` and
   No number here comes from an estimate.
 - **The golden set holds 5 of 50 questions.** Any metric computed today would be
   measured against a tenth of its intended sample.
-- **`ragas.yml` in CI calls `make eval`, which has nothing to evaluate.** Expect
-  that workflow red until step 7 above lands. The `ci.yml` lint and test jobs are
-  green and are the ones that mean something right now.
+- **`ragas.yml` runs on demand only, because it has nothing to evaluate.**
+  `scripts/run_evaluation.py` is a stub until step 7 above lands, so the push
+  trigger was removed rather than left to produce a signal that means nothing
+  either way. The workflow itself is correct now — it fetches the corpus, applies
+  all four SQL files and indexes — and three real defects in it were fixed on
+  2026-09-21, having gone unnoticed while it failed at the first step. The
+  `ci.yml` lint and test jobs are green and are the ones that mean something
+  right now.
 - **ADR-004 is still Planned, and it covers two things neither of which is
   done.** `bge-small-en-v1.5` is the *declared baseline*, chosen by argument and
   never benchmarked against an alternative. The HNSW parameters (`m = 16`,

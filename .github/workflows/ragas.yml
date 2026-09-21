@@ -1,8 +1,10 @@
 name: ragas
 
+# On demand only, until ADR-008 lands. `scripts/run_evaluation.py` is still a
+# stub that evaluates nothing, so a push trigger could only produce a red X for
+# a gap the README already documents (step 7), or -- worse, once the steps below
+# were fixed -- a green tick meaning "the stub ran".
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -33,6 +35,12 @@ jobs:
           psql -h localhost -U dpr -d data_platform_rag -f sql/00_extensions.sql
           psql -h localhost -U dpr -d data_platform_rag -f sql/01_schema.sql
           psql -h localhost -U dpr -d data_platform_rag -f sql/02_indexes.sql
+          psql -h localhost -U dpr -d data_platform_rag -f sql/03_corpus_snapshot.sql
+      - name: Fetch corpus
+        # ADR-012: the snapshot under /tmp/dpr-corpus-* is what index_corpus.py
+        # reads, and a fresh runner has none. Both corpus repos are public, so
+        # this step needs no credential.
+        run: python scripts/fetch_corpus.py
       - name: Index corpus
         env:
           DATABASE_URL: postgresql://dpr:dpr_ci@localhost:5432/data_platform_rag

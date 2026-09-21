@@ -41,11 +41,19 @@ class RetrievedChunk(BaseModel):
     dense_distance: float = Field(ge=0.0)
     sparse_score: float = Field(ge=0.0)
     rrf_score: float = Field(ge=0.0)
+    # Which side ranked this chunk, and at what position. None means the chunk
+    # was not in that side's top-k at all -- not the same as scoring zero there.
+    dense_rank: int | None = Field(default=None, ge=1)
+    sparse_rank: int | None = Field(default=None, ge=1)
 
 
 class RerankedChunk(RetrievedChunk):
-    """RetrievedChunk augmented with cross-encoder score."""
+    """RetrievedChunk augmented with cross-encoder rerank score (ADR-005)."""
     rerank_score: float
+    # True when (question, content) exceeded the model's window and was scored on
+    # a truncated pair. Required, not defaulted: a default of False would assert
+    # "not truncated" about a chunk nobody measured.
+    truncated: bool
 
 
 class IntentClassification(BaseModel):

@@ -185,9 +185,13 @@ class RetrievedChunk(BaseModel):
 
 
 class RerankedChunk(RetrievedChunk):
-    """RetrievedChunk augmented with cross-encoder rerank score."""
+    """RetrievedChunk augmented with cross-encoder rerank score (ADR-005)."""
 
     rerank_score: float
+    # True when (question, content) exceeded the model's window and was scored on
+    # a truncated pair. Required, not defaulted: a default of False would assert
+    # "not truncated" about a chunk nobody measured.
+    truncated: bool
 
 
 # ─── Intent classification ───────────────────────────────────────────────────

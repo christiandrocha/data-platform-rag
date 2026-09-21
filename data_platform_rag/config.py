@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import Field, PostgresDsn, SecretStr
+from pydantic import Field, PostgresDsn, SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -57,3 +57,26 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Singleton. Cached per process."""
     return Settings()
+
+
+@lru_cache(maxsize=1)
+def get_settings_without_llm() -> Settings:
+    """Settings for a path that calls no LLM. Indexing is the whole audience.
+
+    `anthropic_api_key` is required on `Settings`, and correctly so: generation
+    cannot run without it. Indexing can -- it embeds locally with
+    sentence-transformers and makes no Anthropic call at any point. Demanding
+    the credential there fails a pipeline on something it never uses, which is
+    what `ragas.yml` did for four runs, reporting it as a missing DATABASE_URL.
+
+    The empty key is supplied only when the environment has none. Every other
+    field is read from the environment exactly as usual, so a missing
+    DATABASE_URL still fails here as loudly as it does in `get_settings`.
+
+    Declared once, here, rather than per script: two copies of this fallback
+    would be two places for the rule to drift.
+    """
+    try:
+        return get_settings()
+    except ValidationError:
+        return Settings(anthropic_api_key="")

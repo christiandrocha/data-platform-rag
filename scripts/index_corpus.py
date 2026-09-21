@@ -25,9 +25,8 @@ from collections.abc import Callable
 from pathlib import Path
 
 import yaml
-from pydantic import ValidationError
 
-from data_platform_rag.config import Settings, get_settings
+from data_platform_rag.config import Settings, get_settings, get_settings_without_llm
 from data_platform_rag.contracts import (
     Chunk,
     CorpusManifest,
@@ -81,25 +80,6 @@ def check_inventory(manifest: CorpusManifest) -> list[str]:
     return problems
 
 
-def settings_without_llm() -> Settings:
-    """Settings for a path that never calls an LLM.
-
-    `anthropic_api_key` is required on the model, and correctly so: generation
-    cannot run without it. Indexing can -- it embeds locally, with a
-    sentence-transformers model, and makes no Anthropic call at any point.
-    Falling back to an empty key keeps every other field coming from the
-    environment exactly as usual, so a missing DATABASE_URL still fails loudly
-    while a credential this script never uses stops blocking it.
-
-    The same fallback shape `fetch_corpus.repo_urls()` uses, for the same
-    reason.
-    """
-    try:
-        return get_settings()
-    except ValidationError:
-        return Settings(anthropic_api_key="")
-
-
 def embedding_model_name() -> str:
     """The configured embedding model, without requiring secrets to read it."""
     try:
@@ -115,7 +95,7 @@ def embedding_dim() -> int:
     the embedding model, not of any credential.
     """
     try:
-        return settings_without_llm().embedding_dim
+        return get_settings_without_llm().embedding_dim
     except Exception:
         return Settings.model_fields["embedding_dim"].default
 
@@ -237,14 +217,14 @@ def database_dsn() -> str:
     Unlike the embedding model, this has no sensible field default to fall back
     on: a wrong database is worse than no database.
 
-    It reads `settings_without_llm()` rather than `get_settings()`, so that an
+    It reads `get_settings_without_llm()` rather than `get_settings()`, so that an
     absent Anthropic key is not reported as an absent database. It was: the
     `except` below caught the ValidationError for `anthropic_api_key` and told
     the reader to set DATABASE_URL, which `ragas.yml` had set correctly all
     along.
     """
     try:
-        return str(settings_without_llm().database_url)
+        return str(get_settings_without_llm().database_url)
     except Exception as exc:
         raise SystemExit(
             f"ERROR: DATABASE_URL is not configured, so the corpus cannot be "

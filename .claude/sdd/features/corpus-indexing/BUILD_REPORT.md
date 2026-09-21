@@ -9,7 +9,7 @@
 | DESIGN | [DESIGN.md](DESIGN.md) |
 | Start date | 2026-09-17 |
 | End date | 2026-09-17 |
-| PR | not raised |
+| PR | none — merged directly to `main` (`89bf480`, `06778d8`) |
 
 ## What was built
 

@@ -10,7 +10,7 @@
 | ADR | [ADR-014](../../../../docs/adr/ADR-014-source-recall-before-ragas.md), plus [ADR-003 Amendment 1](../../../../docs/adr/ADR-003-hybrid-retrieval-rrf.md) |
 | Start date | 2026-09-18 |
 | End date | 2026-09-18 |
-| PR | not raised |
+| PR | [#2](https://github.com/christiandrocha/data-platform-rag/pull/2), merged by rebase 2026-09-21 |
 
 ## What was built
 

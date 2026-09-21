@@ -10,7 +10,7 @@
 | ADR | [ADR-013](../../../../docs/adr/ADR-013-corpus-provenance-in-postgres.md) |
 | Start date | 2026-09-18 |
 | End date | 2026-09-18 |
-| PR | not raised |
+| PR | [#1](https://github.com/christiandrocha/data-platform-rag/pull/1), merged by rebase 2026-09-18 |
 
 ## What was built
 

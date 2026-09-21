@@ -27,14 +27,17 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
 
-from data_platform_rag.config import get_settings
+from data_platform_rag.config import get_settings, get_settings_without_llm
+from data_platform_rag.contracts import RerankedChunk
 from data_platform_rag.indexer.writer import connect, current_snapshots
 from data_platform_rag.retrieval.pipeline import retrieve
+from data_platform_rag.retrieval.reranker import get_model, rerank
 
 GOLDEN_SET = Path("docs/golden-set/evaluation_questions.yml")
 REPORT_DIR = Path(".claude/dev/reports")
@@ -49,17 +52,11 @@ def load_questions() -> list[dict]:
     return questions
 
 
-def evaluate(question: dict, max_k: int) -> dict:
-    """Retrieve once at max_k and read every k off the same ranking.
-
-    One retrieval per question, not one per k: the top 3 is a prefix of the top
-    20, so retrieving three times would cost three model calls to produce the
-    same answer -- and would not even be guaranteed identical if anything about
-    retrieval were non-deterministic.
-    """
-    chunks = retrieve(question["question"], top_k=max_k)
-    ranking = [
-        {
+def ranking_rows(chunks) -> list[dict]:
+    """One row per chunk, in order. Reranked chunks also carry their score and flag."""
+    rows = []
+    for position, chunk in enumerate(chunks, start=1):
+        row = {
             "rank": position,
             "project": chunk.metadata.source_project,
             "path": chunk.metadata.source_path,
@@ -68,23 +65,48 @@ def evaluate(question: dict, max_k: int) -> dict:
             "dense_rank": chunk.dense_rank,
             "sparse_rank": chunk.sparse_rank,
         }
-        for position, chunk in enumerate(chunks, start=1)
-    ]
+        if isinstance(chunk, RerankedChunk):
+            row["rerank_score"] = chunk.rerank_score
+            row["truncated"] = chunk.truncated
+        rows.append(row)
+    return rows
+
+
+def evaluate(question: dict, max_k: int) -> dict:
+    """Retrieve once at max_k, rerank all of it, and read every k off both orderings.
+
+    One retrieval per question, not one per k: the top 3 is a prefix of the top
+    20, so retrieving three times would cost three model calls to produce the
+    same answer -- and would not even be guaranteed identical if anything about
+    retrieval were non-deterministic.
+
+    The reranked ordering is a permutation of the same candidates (ADR-005), so
+    recall at max_k is equal before and after by construction. If it is not, the
+    stage is wrong.
+    """
+    chunks = retrieve(question["question"], top_k=max_k)
+    started = time.perf_counter()
+    reranked = rerank(question["question"], chunks, top_k=len(chunks))
+    latency = time.perf_counter() - started
+    ranking = ranking_rows(chunks)
+    reranked_ranking = ranking_rows(reranked)
 
     declared = [
         (entry["project"], entry["path"]) for entry in question.get("expected_source_paths") or []
     ]
-    def rank_of(project: str, path: str, k: int) -> int | None:
+
+    def rank_of(rows: list[dict], project: str, path: str, k: int) -> int | None:
         """The position this declared path was found at, or None within top k."""
-        for row in ranking[:k]:
+        for row in rows[:k]:
             if (row["project"], row["path"]) == (project, path):
                 return row["rank"]
         return None
 
-    hits: dict[str, dict[str, int | None]] = {
-        str(k): {f"{project}/{path}": rank_of(project, path, k) for project, path in declared}
-        for k in K_VALUES
-    }
+    def hits(rows: list[dict]) -> dict[str, dict[str, int | None]]:
+        return {
+            str(k): {f"{p}/{q}": rank_of(rows, p, q, k) for p, q in declared}
+            for k in K_VALUES
+        }
 
     return {
         "id": question["id"],
@@ -92,35 +114,44 @@ def evaluate(question: dict, max_k: int) -> dict:
         "question": question["question"],
         "declared_paths": [f"{p}/{q}" for p, q in declared],
         "top_rrf_score": ranking[0]["rrf_score"] if ranking else None,
-        "retrieved_at_k": hits,
+        "top_rerank_score": reranked_ranking[0]["rerank_score"] if reranked_ranking else None,
+        "retrieved_at_k": hits(ranking),
+        "reranked_at_k": hits(reranked_ranking),
+        "truncated_pairs": sum(row["truncated"] for row in reranked_ranking),
+        "rerank_latency_s": round(latency, 3),
         "ranking": ranking,
+        "reranked_ranking": reranked_ranking,
     }
 
 
-def summarise(results: list[dict]) -> dict:
-    """Recall summed over declared paths, per ADR-014."""
-    in_scope = [
-        r for r in results if r["intent"] != OUT_OF_SCOPE and r["declared_paths"]
-    ]
-    denominator = sum(len(r["declared_paths"]) for r in in_scope)
+def recall_at(in_scope: list[dict], key: str, denominator: int) -> dict:
+    """Recall at each k over one of the two orderings (`retrieved_at_k` or `reranked_at_k`)."""
     recall = {}
     for k in K_VALUES:
         found = sum(
-            1
-            for r in in_scope
-            for rank in r["retrieved_at_k"][str(k)].values()
-            if rank is not None
+            1 for r in in_scope for rank in r[key][str(k)].values() if rank is not None
         )
         recall[str(k)] = {
             "found": found,
             "declared": denominator,
             "recall": round(found / denominator, 4) if denominator else None,
         }
+    return recall
+
+
+def summarise(results: list[dict]) -> dict:
+    """Recall summed over declared paths, per ADR-014, before and after reranking."""
+    in_scope = [
+        r for r in results if r["intent"] != OUT_OF_SCOPE and r["declared_paths"]
+    ]
+    denominator = sum(len(r["declared_paths"]) for r in in_scope)
     return {
         "questions_in_scope": len(in_scope),
         "declared_paths": denominator,
-        "source_recall_at_k": recall,
+        "source_recall_at_k": recall_at(in_scope, "retrieved_at_k", denominator),
+        "reranked_recall_at_k": recall_at(in_scope, "reranked_at_k", denominator),
         "top_rrf_scores": {r["id"]: r["top_rrf_score"] for r in results},
+        "top_rerank_scores": {r["id"]: r["top_rerank_score"] for r in results},
     }
 
 
@@ -145,21 +176,39 @@ def main() -> int:
 
     questions = load_questions()
     max_k = max(K_VALUES)
+    settings = get_settings_without_llm()
+    started = time.perf_counter()
+    model = get_model()  # loaded before the loop, so no question's latency carries the load
+    load_s = time.perf_counter() - started
     results = [evaluate(q, max_k) for q in questions]
     summary = summarise(results)
     snapshot = indexed_snapshot()
+    reranker = {
+        "model": settings.reranker_model,
+        "activation": type(model.activation_fn).__name__,
+        "load_s": round(load_s, 3),
+        "truncated_pairs": sum(r["truncated_pairs"] for r in results),
+    }
 
     print("Indexed snapshot (ADR-013):")
     for project, row in snapshot.items():
         print(f"  {project}@{row['commit_sha'][:8]}  {row['embedding_model']}")
+    print(
+        f"Reranker (ADR-005): {reranker['model']}  activation={reranker['activation']}  "
+        f"load {reranker['load_s']:.1f} s  truncated pairs {reranker['truncated_pairs']}"
+    )
     print()
 
     print(f"Source recall at k (ADR-014) — {summary['questions_in_scope']} in-scope question(s), "
           f"{summary['declared_paths']} declared path(s)\n")
+    print(f"  {'':<6} {'RRF':>10}   {'reranked':>10}")
     for k in K_VALUES:
-        row = summary["source_recall_at_k"][str(k)]
-        pct = f"{row['recall']:.0%}" if row["recall"] is not None else "n/a"
-        print(f"  k={k:<3} {row['found']}/{row['declared']}  ({pct})")
+        cells = []
+        for key in ("source_recall_at_k", "reranked_recall_at_k"):
+            row = summary[key][str(k)]
+            pct = f"{row['recall']:.0%}" if row["recall"] is not None else "n/a"
+            cells.append(f"{row['found']}/{row['declared']} ({pct})")
+        print(f"  k={k:<3}  {cells[0]:>10}   {cells[1]:>10}")
 
     print("\nPer question:")
     for result in results:
@@ -170,15 +219,19 @@ def main() -> int:
             )
             continue
         for path in result["declared_paths"]:
-            ranks = [result["retrieved_at_k"][str(k)][path] for k in K_VALUES]
-            rank = next((r for r in ranks if r is not None), None)
-            verdict = f"rank {rank}" if rank is not None else "NOT retrieved in top 20"
+            before = result["retrieved_at_k"][str(max_k)][path]
+            after = result["reranked_at_k"][str(max_k)][path]
+            if before is None:
+                verdict = f"NOT retrieved in top {max_k}"
+            else:
+                verdict = f"rank {before} → rank {after}"
             print(f"  {result['id']}  [{result['intent']:<12}] {path} — {verdict}")
 
-    print("\nTop RRF score per question (ADR-006 threshold evidence):")
-    for qid, score in summary["top_rrf_scores"].items():
-        shown = f"{score:.5f}" if score is not None else "no chunks"
-        print(f"  {qid}  {shown}")
+    print("\nTop score per question, RRF and rerank (ADR-006 threshold evidence):")
+    for result in results:
+        rrf, rr = result["top_rrf_score"], result["top_rerank_score"]
+        shown = f"{rrf:.5f}   {rr:.4f}" if rrf is not None else "no chunks"
+        print(f"  {result['id']}  {shown}   ({result['rerank_latency_s']:.2f} s)")
 
     if args.no_write:
         return 0
@@ -191,6 +244,7 @@ def main() -> int:
             {
                 "generated_at": datetime.now(UTC).isoformat(),
                 "snapshot": snapshot,
+                "reranker": reranker,
                 "summary": summary,
                 "results": results,
             },

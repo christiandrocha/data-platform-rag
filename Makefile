@@ -42,7 +42,7 @@ help:
 	@echo "  make reindex          Re-embed and rewrite everything (--force)"
 	@echo ""
 	@echo "Retrieval:"
-	@echo "  make ask q=\"...\"      Retrieve and print ranked chunks (no LLM)"
+	@echo "  make ask q=\"...\"      Retrieve, rerank, print the top chunks (no LLM)"
 	@echo "  make retrieval-recall Source recall at k over the golden set (ADR-014)"
 	@echo "  make index-corpus     Chunk, embed, upsert into pgvector (slice 2)"
 	@echo "  make reindex          Drop and rebuild vectors (destructive)"
@@ -115,11 +115,13 @@ reindex:
 # Retrieval, by hand. A development instrument, not a product surface: it exists
 # so a golden-set question can be checked against what it actually retrieves.
 #   make ask q="why Snowpipe Streaming?"
-#   make ask q="..." COLLECTIONS=decisions TOP_K=5 FULL=1
+#   make ask q="..." COLLECTIONS=decisions FULL=1
+#   make ask q="..." NO_RERANK=1 TOP_K=5      # the RRF candidates, before reranking
 ask:
 	@$(PYTHON) scripts/ask.py $(if $(q),"$(q)",) \
 		$(if $(COLLECTIONS),--collections $(COLLECTIONS)) \
 		$(if $(TOP_K),--top-k $(TOP_K)) \
+		$(if $(NO_RERANK),--no-rerank) \
 		$(if $(FULL),--full)
 
 # ADR-014: source recall at k over the golden set. The project's retrieval metric

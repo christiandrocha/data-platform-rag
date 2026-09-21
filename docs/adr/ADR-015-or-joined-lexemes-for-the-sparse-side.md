@@ -1,7 +1,12 @@
 # ADR-015 — OR-joined lexemes for the sparse side of hybrid retrieval
 
-**Status**: Planned — decision rule fixed here, promoted or rejected by the measurement in BUILD
+**Status**: Rejected — 2026-09-21, by the measurement this ADR fixed in advance. See [Outcome](#outcome)
 **Date**: 2026-09-21
+
+> Planned on 2026-09-21 with the decision rule below; rejected the same day by
+> BUILD's measurement. The Context, Decision and Consequences sections are kept
+> exactly as written before the measurement. They are the prediction the outcome
+> is judged against.
 
 ## Context
 
@@ -136,3 +141,77 @@ returns as the answer if this ADR is rejected.
 
 **5. Tune `RRF_K`.** Fixed at 60 by ADR-003, and a different constant cannot turn
 an empty list into a populated one. Wrong lever.
+
+## Outcome
+
+**Rejected.** Measured on 2026-09-21 on the same snapshot as the before-reading
+(`sdd-kafka-databricks@f1295df9`, `sdd-kafka-snowflake-2@82a2e269`, indexed
+2026-09-18). Before: `.claude/dev/reports/retrieval-recall-20260921-142654.json`.
+After: `retrieval-recall-20260921-162458.json` and `-162524.json`, two runs,
+identical rankings and scores.
+
+| | before | after |
+|---|---|---|
+| questions with sparse rows | 1/5 | 5/5 |
+| source recall at k=3 | 3/6 | 3/6 |
+| source recall at k=10 | 5/6 | 5/6 |
+| source recall at k=20 | 5/6 | 5/6 |
+| q005 (out of scope) top fused score | 0.01639 | 0.02964 |
+
+Declared paths, rank before → after:
+
+| question | path | rank |
+|---|---|---|
+| q001 | `0029_snowpipe_streaming…` | 1 → **2** |
+| q002 | `007_pipeline_unification.md` | 7 → 6 |
+| q003 | `README.md` | 1 → 1 |
+| q003 | `0030_avro_and_schema_registry…` | 5 → **9** |
+| q004 | `README.md` (databricks) | 1 → **2** |
+| q004 | `0030_avro_and_schema_registry…` | not in top 20 → not in top 20 |
+
+**Why rejected.** DEFINE required q001's declared path to stay at rank 1, and it
+did not. q001's top two tie **exactly** at 0.03200. `001_databricks_vs_snowflake.md`
+is dense 3, sparse 2, and the correct ADR's chunk is dense 2, sparse 3, so
+`1/63 + 1/62` on both sides. The id tiebreak put the wrong ADR first. The sparse
+side, given an equal ballot, added no signal that separated the right document
+from a wrong one. It only made them indistinguishable. Three declared paths lost
+rank, one gained a single place, and no recall bucket moved.
+
+**The predictions this ADR made, checked:**
+
+- *"The gain is concentrated in q002"*: **wrong.** `007_pipeline_unification`
+  moved 7 → 6, not into the top 3. Under OR, `003_parametrized_notebooks.md`
+  took sparse rank 1 on the 1.5 tie, and the 007 chunk that reached sparse rank
+  2 is at dense rank 15.
+- *"q004's missing ADR stays missing"*: **right.**
+- *"The out-of-scope question gets a higher score"*: **right in direction,
+  smaller in size.** Predicted ~0.0328; measured 0.02964 (+81 %). The ranks of
+  q005's top chunk on the two sides do not coincide (dense 6, sparse 9).
+- *158–211 chunks match per question*: consistent. q002 matched 179 in the
+  `EXPLAIN ANALYZE` of the real query.
+
+**A gap in the decision rule, recorded rather than exploited.** The table above
+has no row for "flat at every k": the 3/6 row requires k=10 or k=20 to improve.
+The reading fell in that gap. It did not decide the outcome, because the DEFINE
+criterion on q001 failed independently, but the next decision rule written in
+this project should cover every reading, including "nothing moved".
+
+**What survives the rejection.** Two things found during BUILD were not part of
+the OR decision and stay in the code:
+
+- **Both `ROW_NUMBER()` windows now break ties by `id`.** Before, a tie on
+  `dense_dist` or `sparse_score` was ranked in heap order, so a rank could change
+  after a reindex with no change to the corpus. A test that rewrites a row to the
+  end of the heap failed without the tiebreak (`assert 2 == 1`) and passes with it.
+- **The sanitising and empty-query tests.** They pass under `plainto_tsquery`
+  alone and guard the property that must hold whatever builds the tsquery next.
+
+**What this reopens.** Alternative 2 (drop generic terms by document frequency)
+is now the first candidate, and the q001 tie is the case it would have to win.
+Measured with `ts_stat` over the 304 chunks, q001's broadest lexemes are
+`snowflak` (94 chunks, 31 %), `stream` (72, 24 %) and `project` (47, 16 %),
+against `snowpip` (19, 6 %) and `classic` (9, 3 %). No term is in most chunks,
+so a document-frequency cutoff would have to be low, around a fifth of the
+corpus, and whether it separates the q001 tie is unmeasured. Alternative 4
+(honest dense-only) remains the fallback. Either one is a new ADR, not an
+amendment to this one.

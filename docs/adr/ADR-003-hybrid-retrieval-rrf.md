@@ -119,3 +119,6 @@ The consequence is that this project's "hybrid" retrieval is, in practice,
 **dense-only for question-shaped input**, and has been since the query was
 written. The fusion machinery is correct and the sparse half is simply never
 populated. See the `retrieval` BUILD_REPORT for the measurement.
+
+Attempted in ADR-015 (OR-joined lexemes), rejected on 2026-09-21 by measurement;
+the sparse side remains inert for question-shaped input.

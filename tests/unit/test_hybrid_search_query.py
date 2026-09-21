@@ -142,3 +142,27 @@ def test_row_to_chunk_raises_rather_than_inventing_a_field(missing: str) -> None
     del row[missing]
     with pytest.raises(KeyError):
         row_to_chunk(row)
+
+
+# ─── sparse side and tie-breaking ────────────────────────────────────────────
+
+
+def test_sparse_tsquery_is_built_once_inside_candidates() -> None:
+    """Computed once; every CTE below reads `sparse_score` by name."""
+    assert HYBRID_QUERY.count("plainto_tsquery(") == 1
+    candidates, _, rest = HYBRID_QUERY.partition("dense_ranked AS (")
+    assert "plainto_tsquery(" in candidates
+    assert "WHERE sparse_score > 0" in rest
+
+
+def test_both_ranked_lists_break_ties_by_id() -> None:
+    """ROW_NUMBER over a tied key is arbitrary: the rank would follow heap order.
+
+    The final `ORDER BY rrf_score DESC, c.id ASC` cannot repair a rank that was
+    already assigned arbitrarily one CTE earlier. Found under ADR-015's OR query,
+    where q002's top two sparse hits tie at 1.5; kept after its rejection.
+    """
+    assert "ROW_NUMBER() OVER (ORDER BY dense_dist ASC, id ASC)" in HYBRID_QUERY
+    assert "ROW_NUMBER() OVER (ORDER BY sparse_score DESC, id ASC)" in HYBRID_QUERY
+    assert "ORDER BY dense_dist ASC, id ASC\n  LIMIT" in HYBRID_QUERY
+    assert "ORDER BY sparse_score DESC, id ASC\n  LIMIT" in HYBRID_QUERY

@@ -32,6 +32,8 @@ from pathlib import Path
 
 import yaml
 
+from data_platform_rag.config import get_settings
+from data_platform_rag.indexer.writer import connect, current_snapshots
 from data_platform_rag.retrieval.pipeline import retrieve
 
 GOLDEN_SET = Path("docs/golden-set/evaluation_questions.yml")
@@ -122,6 +124,20 @@ def summarise(results: list[dict]) -> dict:
     }
 
 
+def indexed_snapshot() -> dict[str, dict[str, str]]:
+    """The commit each project's chunks came from (ADR-013).
+
+    Recorded so two artifacts can be shown to measure the same corpus: a recall
+    number that cannot name its commit cannot be compared with another one.
+    """
+    with connect(str(get_settings().database_url)) as conn:
+        snapshots = current_snapshots(conn)
+    return {
+        project: {"commit_sha": s.commit_sha, "embedding_model": s.embedding_model}
+        for project, s in sorted(snapshots.items())
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--no-write", action="store_true", help="Print only; write no artifact.")
@@ -131,6 +147,12 @@ def main() -> int:
     max_k = max(K_VALUES)
     results = [evaluate(q, max_k) for q in questions]
     summary = summarise(results)
+    snapshot = indexed_snapshot()
+
+    print("Indexed snapshot (ADR-013):")
+    for project, row in snapshot.items():
+        print(f"  {project}@{row['commit_sha'][:8]}  {row['embedding_model']}")
+    print()
 
     print(f"Source recall at k (ADR-014) — {summary['questions_in_scope']} in-scope question(s), "
           f"{summary['declared_paths']} declared path(s)\n")
@@ -166,7 +188,12 @@ def main() -> int:
     out = REPORT_DIR / f"retrieval-recall-{stamp}.json"
     out.write_text(
         json.dumps(
-            {"generated_at": datetime.now(UTC).isoformat(), "summary": summary, "results": results},
+            {
+                "generated_at": datetime.now(UTC).isoformat(),
+                "snapshot": snapshot,
+                "summary": summary,
+                "results": results,
+            },
             indent=2,
         )
     )

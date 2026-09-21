@@ -43,24 +43,50 @@ ORDER BY embedding <=> (SELECT embedding FROM chunks ORDER BY id LIMIT 1)
 LIMIT 5;
 COMMIT;
 
--- 5. Query plan baseline — hybrid (dense + sparse)
--- Should use idx_chunks_content_tsv_gin AND idx_chunks_embedding_hnsw.
+-- 5. Query plan baseline — the fused query retrieval actually runs
+-- Mirrors HYBRID_QUERY in data_platform_rag/retrieval/hybrid_search.py with the
+-- parameters inlined: q002's question, top_k = 20, rrf_k = 60, and the first
+-- chunk's embedding standing in for a query vector. If that constant changes,
+-- this section changes with it.
+--
+-- It uses neither index, and that is expected, not a fault. At 304 rows the dense
+-- side is a Seq Scan (see section 4), and the sparse side has no `@@` predicate
+-- for the GIN index to serve: ts_rank_cd is computed for every candidate before
+-- either list is limited (known gap, recorded in ADR-015 Consequences).
+--
+-- What to check: the plan shape, not the row count. For this question the sparse
+-- side reports rows=0 with `Rows Removed by Filter: 304`, because plain
+-- plainto_tsquery ANDs every term. That is the known defect recorded in ADR-003
+-- Amendment 1 §B, left open after ADR-015 was rejected -- an observation, not
+-- the desired state.
 EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
-WITH dense AS (
-    SELECT id, embedding <=> (SELECT embedding FROM chunks ORDER BY id LIMIT 1) AS dense_dist
-    FROM chunks
-    WHERE collection = 'decisions'
-    ORDER BY dense_dist LIMIT 20
+WITH q AS (
+  SELECT (SELECT embedding FROM chunks ORDER BY id LIMIT 1) AS v,
+         plainto_tsquery('english',
+           'Why does the Databricks project use one unified Lakeflow pipeline '
+           'instead of many parametrized notebooks?') AS t
 ),
-sparse AS (
-    SELECT id, ts_rank_cd(content_tsv, plainto_tsquery('english', 'debezium cdc snowflake')) AS sparse_score
-    FROM chunks
-    WHERE collection = 'decisions' AND content_tsv @@ plainto_tsquery('english', 'debezium cdc snowflake')
-    ORDER BY sparse_score DESC LIMIT 20
+candidates AS (
+  SELECT c.id, c.embedding <=> q.v AS dense_dist, ts_rank_cd(c.content_tsv, q.t) AS sparse_score
+  FROM chunks c, q
+  WHERE c.collection = ANY('{decisions,architecture}'::text[])
+),
+dense_ranked AS (
+  SELECT id, ROW_NUMBER() OVER (ORDER BY dense_dist ASC, id ASC) AS dense_rank
+  FROM candidates ORDER BY dense_dist ASC, id ASC LIMIT 20
+),
+sparse_ranked AS (
+  SELECT id, ROW_NUMBER() OVER (ORDER BY sparse_score DESC, id ASC) AS sparse_rank
+  FROM candidates WHERE sparse_score > 0 ORDER BY sparse_score DESC, id ASC LIMIT 20
 )
-SELECT COALESCE(d.id, s.id) AS id, d.dense_dist, s.sparse_score
-FROM dense d FULL OUTER JOIN sparse s USING (id)
-LIMIT 10;
+SELECT c.id,
+  COALESCE(1.0 / (60 + d.dense_rank), 0) + COALESCE(1.0 / (60 + s.sparse_rank), 0) AS rrf_score
+FROM candidates c
+LEFT JOIN dense_ranked  d USING (id)
+LEFT JOIN sparse_ranked s USING (id)
+WHERE d.dense_rank IS NOT NULL OR s.sparse_rank IS NOT NULL
+ORDER BY rrf_score DESC, c.id ASC
+LIMIT 20;
 
 -- 6. Proof that the HNSW index is usable, independent of what the planner picks
 -- Must report "Index Scan using idx_chunks_embedding_hnsw", and must return the

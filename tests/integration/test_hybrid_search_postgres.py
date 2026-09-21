@@ -183,3 +183,73 @@ def test_every_result_is_a_fully_populated_contract(conn) -> None:
         assert chunk.metadata.token_count > 0
         assert chunk.metadata.source_anchor is not None
         assert chunk.id > 0
+
+
+# ─── sanitising, empty queries and tie-breaking ──────────────────────────────
+#
+# Found while building ADR-015 (OR-joined lexemes), kept after its rejection:
+# they guard properties that must hold whatever builds the tsquery.
+#
+# C matches one of the two query terms. Under plain plainto_tsquery it has no
+# sparse rank; the tests below do not depend on whether it does.
+
+SANITISING_FIXTURE = [
+    ("A", "alpha alpha alpha", unit((0, 1.0)), "decisions"),
+    ("B", "debezium snowflake ingestion path", unit((1, 1.0)), "decisions"),
+    ("C", "gamma snowflake", unit((0, 0.6), (1, 0.8)), "decisions"),
+]
+
+
+@pytest.mark.parametrize("text", ["the and of is", ""])
+def test_a_query_with_no_lexemes_returns_dense_only_without_error(conn, text: str) -> None:
+    """An empty tsquery matches nothing; it must not raise or empty the result."""
+    seed(conn, SANITISING_FIXTURE)
+    results = run(conn, text=text)
+    assert len(results) == 3
+    assert all(c.sparse_rank is None for c in results)
+    assert all(c.dense_rank is not None for c in results)
+
+
+@pytest.mark.parametrize(
+    "noisy",
+    [
+        "debezium' snowflake",
+        "debezium: snowflake",
+        "debezium & snowflake!",
+        "debezium | snowflake",
+        "debezium <-> snowflake",
+    ],
+)
+def test_tsquery_syntax_in_the_input_is_inert(conn, noisy: str) -> None:
+    """Sanitising still comes from plainto_tsquery: operators are just noise."""
+    seed(conn, SANITISING_FIXTURE)
+
+    def shape(chunks):
+        return [(c.id, c.dense_rank, c.sparse_rank, c.rrf_score) for c in chunks]
+
+    assert shape(run(conn, text=noisy)) == shape(run(conn, text=QUERY_TEXT))
+
+
+def test_a_sparse_tie_breaks_by_id_not_by_heap_order(conn) -> None:
+    """Two chunks with identical text tie on sparse_score; the lower id ranks first.
+
+    The UPDATE rewrites the lower-id row at the end of the heap, so a sequential
+    scan meets the higher id first. Without `id ASC` in the window, ROW_NUMBER
+    would follow that order.
+    """
+    seed(
+        conn,
+        [
+            ("T1", "debezium snowflake", unit((0, 1.0)), "decisions"),
+            ("T2", "debezium snowflake", unit((1, 1.0)), "decisions"),
+        ],
+    )
+    with conn.cursor() as cur:
+        cur.execute("SELECT min(id) FROM chunks")
+        low = cur.fetchone()[0]
+        cur.execute("UPDATE chunks SET token_count = token_count WHERE id = %s", (low,))
+
+    first = run(conn)
+    ranks = {c.id: c.sparse_rank for c in first}
+    assert ranks[low] == 1
+    assert [c.id for c in run(conn)] == [c.id for c in first]

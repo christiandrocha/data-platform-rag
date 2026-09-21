@@ -36,6 +36,13 @@ VALID_COLLECTIONS: frozenset[str] = frozenset(get_args(Collection))
 
 # Every column ChunkMetadata needs, plus the three scores. `content_tsv` is not
 # selected: it is the sparse index's input, never output.
+#
+# The sparse side is plain `plainto_tsquery`, which ANDs every term, so it is
+# empty for most question-shaped input (ADR-003 Amendment 1 §B). OR-joining the
+# lexemes was tried and rejected by measurement (ADR-015, Outcome).
+#
+# Ties in either ranked list break by id, so a rank never depends on the
+# physical order of rows in the heap.
 HYBRID_QUERY = """
 WITH candidates AS (
   SELECT
@@ -48,16 +55,16 @@ WITH candidates AS (
   WHERE collection = ANY(%(collections)s::text[])
 ),
 dense_ranked AS (
-  SELECT id, ROW_NUMBER() OVER (ORDER BY dense_dist ASC) AS dense_rank
+  SELECT id, ROW_NUMBER() OVER (ORDER BY dense_dist ASC, id ASC) AS dense_rank
   FROM candidates
-  ORDER BY dense_dist ASC
+  ORDER BY dense_dist ASC, id ASC
   LIMIT %(top_k)s
 ),
 sparse_ranked AS (
-  SELECT id, ROW_NUMBER() OVER (ORDER BY sparse_score DESC) AS sparse_rank
+  SELECT id, ROW_NUMBER() OVER (ORDER BY sparse_score DESC, id ASC) AS sparse_rank
   FROM candidates
   WHERE sparse_score > 0
-  ORDER BY sparse_score DESC
+  ORDER BY sparse_score DESC, id ASC
   LIMIT %(top_k)s
 )
 SELECT

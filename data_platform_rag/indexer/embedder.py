@@ -18,7 +18,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import TYPE_CHECKING
 
-from data_platform_rag.config import get_settings
+from data_platform_rag.config import get_settings_without_llm
 
 if TYPE_CHECKING:
     from sentence_transformers import SentenceTransformer
@@ -51,7 +51,7 @@ def get_model() -> SentenceTransformer:
             f"be embedded.\n{_INSTALL_HINT}"
         ) from exc
 
-    model_name = get_settings().embedding_model
+    model_name = get_settings_without_llm().embedding_model
     try:
         return SentenceTransformer(model_name)
     except Exception as exc:  # pragma: no cover - network/cache-dependent
@@ -92,10 +92,10 @@ def embed_documents(texts: list[str], batch_size: int | None = None) -> list[lis
     """
     if not texts:
         return []
-    # An explicit override has to be a parameter: `get_settings()` is an
+    # An explicit override has to be a parameter: the settings accessor is an
     # lru_cache singleton, so a caller's `model_copy` would never be seen here.
     if batch_size is None:
-        batch_size = get_settings().embedding_batch_size
+        batch_size = get_settings_without_llm().embedding_batch_size
     vectors = get_model().encode(
         texts,
         batch_size=batch_size,

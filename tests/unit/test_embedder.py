@@ -8,11 +8,12 @@ texts are unique by construction.
 A fake encoder is injected throughout, so the suite needs no model and no
 network — the same posture slice 1's tests took.
 
-`get_settings` is stubbed for the same reason. `Settings` requires
+`get_settings_without_llm` is stubbed for the same reason. `Settings` requires
 `anthropic_api_key`, which is read from a gitignored `.env`; a unit test that
 constructs it passes on the author's machine and fails in CI, where no `.env`
 exists. These tests are about caching and batching and have no business needing
-a credential.
+a credential -- and neither, as of 2026-09-21, does the embedder itself: it
+reads the accessor that supplies an empty key rather than demanding one.
 """
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ BATCH = 32
 def stub_settings(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     """No real Settings, so no `.env` and no credential are needed."""
     settings = SimpleNamespace(embedding_batch_size=BATCH, embedding_model="stub/model")
-    monkeypatch.setattr(embedder, "get_settings", lambda: settings)
+    monkeypatch.setattr(embedder, "get_settings_without_llm", lambda: settings)
     return settings
 
 
@@ -115,7 +116,7 @@ def test_embed_documents_normalises(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_embed_documents_honours_an_explicit_batch_size(monkeypatch: pytest.MonkeyPatch) -> None:
     """`--batch-size` has to arrive as a parameter, not via settings.
 
-    `get_settings()` is an `lru_cache` singleton, so a caller that builds a
+    The settings accessor is an `lru_cache` singleton, so a caller that builds a
     modified copy of Settings changes nothing that this function can see. The
     first version of the CLI did exactly that and the flag was silently ignored.
     """

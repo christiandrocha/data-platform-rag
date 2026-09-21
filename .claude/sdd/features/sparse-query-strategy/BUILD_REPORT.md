@@ -10,7 +10,7 @@
 | ADR | [ADR-015](../../../../docs/adr/ADR-015-or-joined-lexemes-for-the-sparse-side.md) — **Rejected** |
 | Start date | 2026-09-21 |
 | End date | 2026-09-21 |
-| PR | — (not opened; ship phase) |
+| PR | [#6](https://github.com/christiandrocha/data-platform-rag/pull/6) |
 
 ## Outcome in one paragraph
 

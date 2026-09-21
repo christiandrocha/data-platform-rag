@@ -70,4 +70,11 @@ phases:
       - "Deploy verified against production Streamlit URL"
       - "RAGAS regression check in CI green"
     next_phase: null  # terminal
-    on_completion: "move .claude/sdd/features/{slug}/ to .claude/sdd/archive/{slug}/"
+    # A shipped feature stays where it was built. This line said "move
+    # .claude/sdd/features/{slug}/ to .claude/sdd/archive/{slug}/" until
+    # 2026-09-21, contradicting the AGENTS.md boundary "Never write to
+    # .claude/sdd/archive/ -- read-only history of superseded features". The
+    # archive's contents agree with the boundary, not with this file: it holds
+    # one superseded brainstorm draft, not a shipped feature. AGENTS.md is the
+    # declared source of truth, so this contract is what was wrong.
+    on_completion: "nothing moves -- the feature folder is the record"

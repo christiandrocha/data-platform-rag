@@ -127,10 +127,15 @@ Every stage traced in Langfuse. Every query logged in Postgres.
 
 ## Status
 
-Last updated 2026-09-18, against `sdd-kafka-snowflake-2@82a2e269` and
+Last updated 2026-09-21, against `sdd-kafka-snowflake-2@82a2e269` and
 `sdd-kafka-databricks@f1295df9`.
 
-**What works** — every line below is reproducible from a clean checkout:
+**What works** — every line below is reproducible from a clean checkout, and on
+2026-09-21 the indexing chain was executed end to end on a fresh GitHub Actions
+runner for the first time ([`ragas.yml` run 35609046763](https://github.com/christiandrocha/data-platform-rag/actions/runs/35609046763)):
+fetch, schema, embed, write — **149 + 155 = 304 rows in 44.0s**, the same count
+this section already claimed. Until that run, "reproducible from a clean
+checkout" had only ever been demonstrated on the author's machine.
 
 - `make bootstrap` — Postgres + pgvector, schema and indexes. Create-only and
   idempotent; the destructive path is `make reset-db` and nothing else runs it.
@@ -149,7 +154,7 @@ Last updated 2026-09-18, against `sdd-kafka-snowflake-2@82a2e269` and
   ADR-012 and ADR-013: a score can name the commit it was measured against.
 - `make verify-adversarials` — the ADR-011 blocking gate, which now has a
   canonical input instead of a local path override.
-- `make lint` clean, `make test` **131 passing**, both green in CI.
+- `make lint` clean, `make test` **172 passing**, both green in CI.
 
 **What is next**, in dependency order — none of this exists yet:
 

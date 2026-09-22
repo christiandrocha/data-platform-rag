@@ -295,6 +295,28 @@ wrong while leaving it looking healthy. The scope stays narrow — a new corpus
 mention only changes semantic status for an out-of-scope question; for an
 in-scope one it is simply more material to retrieve.
 
+### T4 — Voice and architecture units: decided 2026-09-22
+
+Angles per unit live in [INTERVIEWER_THEMES.md](./INTERVIEWER_THEMES.md): research
+input, not questions. Commitment 1 of ADR-011 is unchanged.
+
+- **All 45 remaining questions are `voice: technical`.** The audience this
+  generation measures is the technical interviewer. The `recruiter` voice stays
+  in the schema but has no questions, so recruiter-style performance is
+  **unmeasured**, and that is recorded as a known gap in
+  `docs/golden-set/README.md`.
+- **The 17 architecture units are chosen by interviewer relevance**, not by
+  taking the first 17 of `make golden-set-next-architecture`'s 61-unit walk,
+  which would include units like `#License` and `#Author`. The seeded walk
+  still sets the *order* of authoring: skip units not on the list. This is a
+  selection decision, not a re-shuffle, so the seed stays `20260914`.
+- **Both `#Interview Cheat Sheet` sections are excluded** as expected sources.
+  They answer interview questions nearly verbatim; a match there would measure
+  phrasing, not retrieval.
+- **The 4 new adversarials complete decision C3's gradient**: two
+  adjacent-but-absent, one trivially out-of-domain, one prompt-extraction.
+  q005 already holds the subjective band.
+
 ## Why an ADR is warranted
 
 Three commitments here outlive this feature and would otherwise be violated by a

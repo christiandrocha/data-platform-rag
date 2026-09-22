@@ -17,7 +17,8 @@ cost automatically.
 ## What we do NOT track
 
 - Embedding cost — bge-small runs locally
-- Reranker cost — bge-reranker-base runs locally
+- Reranker cost — none: no reranker runs (ADR-005 measured two local
+  cross-encoders and rejected both)
 - Postgres cost — flat via Neon free tier
 
 ## Cost per query estimate

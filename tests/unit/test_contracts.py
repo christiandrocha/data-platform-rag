@@ -110,26 +110,9 @@ def test_reranked_chunk_extends_retrieved_chunk():
         sparse_score=0.2,
         rrf_score=0.3,
         rerank_score=0.9,
-        truncated=False,
     )
     assert isinstance(rc, RetrievedChunk)
     assert rc.rerank_score == 0.9
-
-
-def test_reranked_chunk_requires_truncated():
-    """No default: False would assert "not truncated" about a chunk nobody measured."""
-    meta = ChunkMetadata(
-        source_project="sdd-kafka-snowflake-2",
-        source_type="adr",
-        source_path="x.md",
-        chunk_index=0,
-        token_count=100,
-    )
-    with pytest.raises(ValidationError, match="truncated"):
-        RerankedChunk(
-            id=1, content="foo", metadata=meta,
-            dense_distance=0.1, sparse_score=0.2, rrf_score=0.3, rerank_score=0.9,
-        )
 
 
 # ─── AnswerResult ────────────────────────────────────────────────────────────
@@ -147,7 +130,6 @@ def test_answer_result_valid():
         RerankedChunk(
             id=42, content="x", metadata=meta,
             dense_distance=0.1, sparse_score=0.2, rrf_score=0.3, rerank_score=0.95,
-            truncated=False,
         )
     ]
     result = AnswerResult(

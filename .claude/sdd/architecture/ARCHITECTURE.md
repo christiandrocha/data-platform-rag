@@ -18,7 +18,7 @@
 │  Retrieval (data_platform_rag/retrieval/)        │
 │  - intent classifier                     │
 │  - hybrid_search (dense + sparse + RRF)  │
-│  - reranker (bge-reranker cross-encoder) │
+│  - reranker (ADR-005: rejected, unwired) │
 │  - pipeline (orchestration)              │
 └─────────────────┬────────────────────────┘
                   │

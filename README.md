@@ -37,7 +37,7 @@ graph LR
     Q([user query]) --> IC[intent classifier<br/>decision · architecture · comparison · hybrid]
     IC --> HR[hybrid retrieval<br/>pgvector cosine + GIN tsvector · RRF]
     HR --> C[(top-20 candidates)]
-    C --> RR[reranker<br/>bge-reranker-base cross-encoder · top-3]
+    C -.-> RR[reranker<br/>ADR-005: measured, rejected · not wired]
     RR -.below threshold · never an uncited answer.- FB([out of scope<br/>LinkedIn redirect])
     RR --> G[Claude Sonnet<br/>system-prompt-constrained]
     G --> A([answer + cited chunks<br/>project · ADR-id · section])
@@ -84,7 +84,7 @@ Intent classifier (LLM-lite, four categories: decision / architecture / comparis
     │        └──► Top-20 candidates
     │
     ▼
-Reranker (bge-reranker-base cross-encoder, top-3 selection)
+Reranker — not in the pipeline: ADR-005 measured two cross-encoders and rejected both
     │
     ├──► Below-threshold check ──► Fallback: "Out of scope — ask on LinkedIn"
     │
@@ -108,7 +108,7 @@ Every stage traced in Langfuse. Every query logged in Postgres.
 | Vector store | PostgreSQL + pgvector | Requirement in target job specs. HNSW indexes, tuned parameters. |
 | Sparse search | PostgreSQL GIN + tsvector + ts_rank_cd | Hybrid retrieval without another dependency. |
 | Embedding | `bge-small-en-v1.5` | 384-dim, open-source, strong on technical text. Benchmarked during BUILD. |
-| Reranker | `bge-reranker-base` | Cross-encoder, ~100ms latency, measurable RAGAS lift. |
+| Reranker | none (ADR-005, rejected) | Two local cross-encoders measured over the RRF top 20 on 2026-09-21: `ms-marco-MiniLM-L-6-v2` 3–5 s per question, `bge-reranker-base` 18–29 s. Both dropped a protected golden-set path from the top 3, so neither ships. |
 | LLM | Claude Sonnet 4.6 (Anthropic API) | Quality on English technical text. Estimated ~$0.008 per non-fallback query.[^cost] |
 | Contracts | pydantic v2 | All inter-module boundaries — config, chunk metadata, LLM output, RAGAS reports. |
 | Observability | Langfuse (cloud free tier) | Traces every query, tracks Claude cost, receives RAGAS scores. |
@@ -158,10 +158,12 @@ checkout" had only ever been demonstrated on the author's machine.
 
 **What is next**, in dependency order — none of this exists yet:
 
-1. **Retrieval executor.** The RRF query is written, as a SQL constant in
-   `retrieval/hybrid_search.py`. Nothing runs it: there is no function that
-   takes a question and returns chunks.
-2. **Reranking** (ADR-005, still Planned).
+1. **Retrieval quality.** Retrieval runs (`make ask`, `make retrieval-recall`),
+   and two attempts to fix its top-3 order were measured and rejected:
+   OR-joined lexemes (ADR-015) and cross-encoder reranking (ADR-005). Next in
+   line: the embedding (ADR-004) and the golden set's anchors.
+2. **Reranking** (ADR-005) — rejected 2026-09-21; the setting is kept for a
+   re-measurement when the golden set grows.
 3. **Generation.** The system prompt is versioned in `generation/prompt.py`.
    There is no Anthropic client and no fallback logic behind it.
 4. **Intent classifier**, then the pipeline that joins the four stages above.

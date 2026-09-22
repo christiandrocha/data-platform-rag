@@ -10,7 +10,7 @@ Reversals are documented in-place; superseded ADRs stay in the record.
 | ADR-002 | Two logical collections in one physical table | Accepted | 2026-09-10 |
 | ADR-003 | Hybrid retrieval — dense + sparse via reciprocal rank fusion | Accepted | 2026-09-10 |
 | ADR-004 | Embedding model selection and HNSW parameter tuning | Planned | — |
-| ADR-005 | Cross-encoder reranking of the RRF top 20 | Planned | — |
+| ADR-005 | Cross-encoder reranking of the RRF top 20 | Rejected | 2026-09-21 |
 | ADR-006 | Out-of-scope fallback message design | Accepted | 2026-09-10 |
 | ADR-007 | Chunking strategy per source type | Accepted | 2026-09-14 |
 | ADR-008 | RAGAS in CI with regression threshold | Planned | — |

@@ -49,6 +49,11 @@
       path: docs/adr/0030_avro_and_schema_registry_as_the_contract.md
     - project: sdd-kafka-snowflake-2
       path: README.md
+  grounding:
+    - claim: "See ADR-0030"
+      project: sdd-kafka-snowflake-2
+      path: docs/adr/0030_avro_and_schema_registry_as_the_contract.md
+      quote: "# ADR 0030 — Avro + Schema Registry as the Contract Boundary"
 
 - id: q004
   provenance: human

@@ -26,6 +26,7 @@ from itertools import zip_longest
 from pathlib import Path
 
 import yaml
+from validate_golden_set import TARGET_TOTAL
 
 GOLDEN_SET = Path("docs/golden-set/evaluation_questions.yml")
 INVENTORY = Path("docs/golden-set/corpus_inventory.yml")
@@ -100,6 +101,18 @@ def comparison_pairs(seed: int) -> list[tuple[tuple[str, str], tuple[str, str]]]
             for i in range(n)]
 
 
+def report_exit(n_uncovered: int, n_questions: int) -> int:
+    """Incompleteness warns, wrongness fails (DESIGN property 3).
+
+    Below TARGET_TOTAL questions an uncovered ADR is work still to do, not a
+    defect, so curation never turns a build red. At TARGET_TOTAL it means the
+    finished instrument misses part of the corpus, and the check fails.
+    """
+    if n_uncovered and n_questions >= TARGET_TOTAL:
+        return 1
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -133,7 +146,8 @@ def main() -> int:
     kind = "architecture" if args.next_architecture else "adrs"
     seed, projects = load_inventory(kind)
     order = walk_order(seed, projects)
-    coverage = cited(yaml.safe_load(GOLDEN_SET.read_text()))
+    golden = yaml.safe_load(GOLDEN_SET.read_text())
+    coverage = cited(golden)
 
     uncovered = [(p, a) for (p, a) in order if not coverage.get((p, a))]
 
@@ -157,8 +171,9 @@ def main() -> int:
     print(f"\n{len(order) - len(uncovered)}/{len(order)} inventory ADRs covered")
     if uncovered:
         print(f"{len(uncovered)} uncovered. Next: {uncovered[0][0]} {uncovered[0][1]}")
-        return 1
-    return 0
+        if len(golden) < TARGET_TOTAL:
+            print(f"  ! warning only: the set has {len(golden)}/{TARGET_TOTAL} questions")
+    return report_exit(len(uncovered), len(golden))
 
 
 if __name__ == "__main__":

@@ -65,6 +65,12 @@ Both voices are written within the same intents and the same distribution.
 RAGAS results are reported per voice, so a system that serves one audience and
 fails the other shows up as a gap instead of an average.
 
+**This generation is technical-only (decided 2026-09-22).** All 50 questions
+carry `voice: technical`; the paragraph above describes the schema's intent, not
+this set. Known gap: performance on recruiter-style questions (short, keyword-led)
+is **unmeasured**, so no claim about serving recruiters can come from this set.
+Rationale and scope in `.claude/sdd/features/golden-set-curation/DESIGN.md` T4.
+
 ## Distribution target
 
 | Intent | Count | Purpose |

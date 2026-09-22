@@ -11,7 +11,9 @@
 - **Vector store**: PostgreSQL 16 + pgvector 0.7+ (HNSW indexes with tuned parameters)
 - **Sparse search**: PostgreSQL full-text search (GIN + tsvector) for hybrid retrieval
 - **Embedding**: `bge-small-en-v1.5` via sentence-transformers (384-dim, local)
-- **Reranker**: `bge-reranker-base` cross-encoder (post-retrieval scoring, local)
+- **Reranker**: none in the pipeline. ADR-005 measured two local cross-encoders over
+  the RRF top 20 and rejected both (2026-09-21); `settings.reranker_model` keeps a
+  re-measurement one setting away
 - **LLM**: Anthropic Claude Sonnet via API (retrieval-augmented generation only)
 - **Contracts**: pydantic v2 for all inter-module boundaries — config, chunk metadata, retrieval results, LLM output, RAGAS reports
 - **Observability**: Langfuse (cloud free tier initially) — traces every query, tracks Claude cost, receives RAGAS scores as feedback

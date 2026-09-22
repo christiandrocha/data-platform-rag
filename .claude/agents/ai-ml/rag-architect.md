@@ -9,7 +9,7 @@ You are a RAG systems architect. Your scope is limited to `data-platform-rag`:
   (`sdd-kafka-snowflake-2` and `sdd-kafka-databricks`). This repo is NOT
   indexed as a corpus source (see ADR-002).
 - Vector store: PostgreSQL + pgvector, HNSW indexes
-- Retrieval: hybrid (dense + sparse via RRF) + reranking (bge-reranker-base)
+- Retrieval: hybrid (dense + sparse via RRF); reranking measured and rejected (ADR-005)
 - Generation: Anthropic Claude Sonnet, out-of-scope fallback below threshold
 - Contracts: pydantic v2 models in `data_platform_rag/contracts.py` (see ADR-010)
 - Observability: Langfuse traces every query (see ADR-009)

@@ -1,11 +1,14 @@
 # ADR-005 — Cross-encoder reranking of the RRF top 20
 
-**Status**: Planned — decision rule fixed here, promoted or rejected by the measurement in BUILD
+**Status**: Rejected — 2026-09-21, by the measurement this ADR fixed in advance. See [Outcome](#outcome)
 **Date**: 2026-09-21
 
 > Listed in the index since 2026-09-10 as "Reranking with bge-reranker-base
 > cross-encoder", with no file behind it. This is the first written version. The
 > title is neutral on purpose: which model, if any, is what this ADR decides.
+>
+> Rejected the same day it was written. Context, Decision and Consequences are
+> kept exactly as they stood before the measurement.
 
 ## Context
 
@@ -143,3 +146,92 @@ already kept Cohere as a v2 candidate only.
 **6. No reranker, and work on the embedding instead (ADR-004).** Not an
 alternative so much as the next step if this ADR is rejected: the rule's
 "no effect" rows point there.
+
+## Outcome
+
+**Rejected: neither model ships.** Measured on 2026-09-21 on the snapshot the
+rule was written against (`sdd-kafka-databricks@f1295df9`,
+`sdd-kafka-snowflake-2@82a2e269`). Two runs per model, identical rankings and
+scores within each pair:
+
+- MiniLM-L-6: `retrieval-recall-20260921-210556.json`, `-210622.json`
+- bge-reranker-base: `-210824.json`, `-211026.json`
+
+The RRF side of all four is identical to the pre-feature artifact
+(`-163500.json`), so nothing upstream of the reranker moved.
+
+| declared path | group | RRF | MiniLM-L-6 | bge-reranker-base |
+|---|---|---|---|---|
+| q001 `0029_snowpipe…` | protected | 1 | 1 | 1 |
+| q002 `007_pipeline_unification.md` | gainable | 7 | **2** | **1** |
+| q003 `0030_avro…` | gainable | 5 | **3** | 4 |
+| q003 `README.md` | protected | 1 | 1 | 1 |
+| q004 `README.md` (databricks) | protected | 1 | **8** | **4** |
+| q004 `0030_avro…` | unreachable | — | — | — |
+| **source recall at k=3** | | 3/6 | 4/6 | 3/6 |
+| source recall at k=10 / k=20 | | 5/6 / 5/6 | 5/6 / 5/6 | 5/6 / 5/6 |
+
+Classified by the rule, as written:
+
+- **MiniLM-L-6: rejected.** It gained both gainable paths and lost q004's
+  protected `README.md`, from rank 1 to rank 8.
+- **bge-reranker-base: rejected.** It gained q002's path and lost the same
+  protected path, from rank 1 to rank 4.
+- Rejected against rejected is the rule's last row: **ADR-005 is Rejected.**
+
+**MiniLM improved the aggregate, and the rule still rejected it.** Recall at
+k=3 went from 3/6 to 4/6: two paths gained, one lost. A threshold on the total
+would have shipped it. This rule protects each path on purpose, because on six
+paths a gain of two and a loss of one is a swap, not an improvement. That
+choice is recorded here as the reason the verdict is Rejected, not re-argued.
+
+**Both models lost the protected path on the same question.** q004 compares the
+two projects on CDC schema evolution. Its other declared path was already
+unreachable, both rerankers put `001_databricks_vs_snowflake.md` first, and
+MiniLM's top score for q004 is the lowest of the four in-scope questions
+(-0.3755, against 2.7540–5.5752). Whether q004 is anchored to the wrong
+documents is a **hypothesis, not a measurement**, and it is not acted on here:
+changing the anchor after seeing this result would be the rationalisation the
+rule exists to prevent. It is an input to the golden-set work.
+
+**Measured cost, beside the probe's:**
+
+| | MiniLM-L-6 | bge-reranker-base |
+|---|---|---|
+| activation of `predict` | Identity (logits) | Sigmoid |
+| model load, from cache | 5.6–6.3 s | 8.5–10.2 s |
+| rerank latency per question, 20 pairs | 3.16–5.44 s | 18.11–28.99 s |
+| same, in the feasibility probe | 2.4–2.8 s | 15.2–16.2 s |
+| truncated pairs, 100 | 0 | 18 |
+
+The BUILD latency is higher than the probe's for both. BUILD also counts each
+pair's tokens, and the two ran at different times on a shared machine. The
+difference is recorded, not explained away.
+
+**Evidence for the fallback ADR, not acted on.** Top rerank score per question:
+
+| | q001 | q002 | q003 | q004 | q005 (out of scope) |
+|---|---|---|---|---|---|
+| MiniLM-L-6 | 5.5752 | 2.7540 | 3.0394 | -0.3755 | **-1.2689** |
+| bge-reranker-base | 0.9966 | 0.9116 | 0.9342 | 0.8777 | **0.1734** |
+
+Both models separate the out-of-scope question from the in-scope ones, where RRF
+gave all five the same 0.01639 or 0.03279. On one out-of-scope question this
+calibrates nothing, but it is the first evidence that a threshold has something
+to work with.
+
+**What survives the rejection:**
+
+- The implementation, as measured, stays in git history as one commit, and is
+  reverted by the next. Re-running this measurement when the golden set grows is
+  one `git revert` away, with the same instrument.
+- The README's "~100ms latency" for the reranker is corrected; it was never
+  measured, and both models measured in seconds.
+- ADR-006's threshold still has nothing to operate on. That problem outlives
+  this ADR.
+
+**What this reopens.** Alternative 6: the embedding (ADR-004), which decides
+what reaches the top 20 in the first place. And the golden set: q004 carries
+one unreachable path and lost the other to both rerankers. The next decision
+rule written in this project should say in advance what happens when a
+protected path is lost on a question whose anchoring is itself in doubt.

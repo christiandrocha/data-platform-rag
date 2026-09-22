@@ -1,10 +1,10 @@
 """Retrieval pipeline — question in, ranked chunks out.
 
-`retrieve` is embed-then-search; `retrieve_and_rerank` adds the cross-encoder
-stage of ADR-005 on top of it. This is the module the repo map reserves for the
-retrieval stage, and it grows to carry intent classification (ADR-002) as that
-lands. Until then the `collections` default of "both" stands in for the
-classifier, stated as a default rather than hidden inside a branch.
+Today this is embed-then-search. It is the module the repo map reserves for the
+retrieval stage, and it grows to carry intent classification (ADR-002) and
+reranking (ADR-005) as those land. Both are deliberate non-goals here: the
+`collections` default of "both" is what stands in for the classifier, stated as
+a default rather than hidden inside a branch.
 """
 
 from __future__ import annotations
@@ -12,11 +12,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, get_args
 
 from data_platform_rag.config import get_settings
-from data_platform_rag.contracts import Collection, RerankedChunk, RetrievedChunk
+from data_platform_rag.contracts import Collection, RetrievedChunk
 from data_platform_rag.indexer.embedder import embed_query
 from data_platform_rag.indexer.writer import connect
 from data_platform_rag.retrieval.hybrid_search import build_hybrid_query, search
-from data_platform_rag.retrieval.reranker import rerank
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     import psycopg
@@ -81,21 +80,3 @@ def retrieve(
             collections=collections,
             top_k=effective_top_k,
         )
-
-
-def retrieve_and_rerank(
-    question: str,
-    collections: list[Collection] | None = None,
-    conn: psycopg.Connection | None = None,
-) -> list[RerankedChunk]:
-    """Retrieve the RRF top `settings.hybrid_top_k`, rerank, keep `settings.rerank_top_k`.
-
-    `retrieve` is left as it was on purpose (ADR-005): source recall at k is
-    defined on its output, and the recall script needs that list and the reranked
-    one from the same retrieval. This is the entry point generation will call.
-    """
-    settings = get_settings()
-    candidates = retrieve(
-        question, collections=collections, top_k=settings.hybrid_top_k, conn=conn
-    )
-    return rerank(question, candidates, top_k=settings.rerank_top_k)

@@ -22,7 +22,7 @@ What shipped is the evidence, and the instrument that produced it:
 
 - ADR-005, Rejected in place, with per-path ranks, measured cost and the top
   score per question.
-- The stage as measured, kept as commit `3b07aa1` and reverted by `e391a69`.
+- The stage as measured, kept as commit `94accd9` and reverted by `a48109b`.
   A re-measurement is one `git revert` away, with the same code.
 - The README no longer claims a "~100ms" reranker. It was never measured, and
   both models measured in seconds.

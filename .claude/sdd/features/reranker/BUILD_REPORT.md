@@ -19,7 +19,7 @@ and **the rule fixed in DEFINE rejected both**. Each one lost q004's protected
 databricks `README.md` from the top 3: MiniLM-L-6 moved it to rank 8,
 bge-reranker-base to rank 4. MiniLM raised recall at k=3 from 3/6 to 4/6, and
 the rule still rejected it, because it protects each path rather than the total.
-The stage is reverted. The implementation stays in history as commit `3b07aa1`,
+The stage is reverted. The implementation stays in history as commit `94accd9`,
 so the measurement can be re-run with the same instrument. After the revert,
 `make retrieval-recall` reproduces the pre-feature artifact exactly.
 

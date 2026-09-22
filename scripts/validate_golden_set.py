@@ -28,6 +28,14 @@ ADVERSARIAL_FIELDS = {"contamination_probes", "grep_verified"}
 # recommendation, deliberately not enforced here.
 MIN_PROBES = 1
 
+# Optional on in-scope questions, rejected on out-of-scope ones (DESIGN, Data
+# contracts). `grounding_verified` is the author's attestation that every claim
+# in expected_answer was checked against a cited source; `grounding` holds
+# verbatim quotes for the high-risk claims (ADR-011 Commitment 3).
+GROUNDING_FIELDS = {"grounding_verified", "grounding"}
+GROUNDING_ENTRY_FIELDS = {"claim", "project", "path", "quote"}
+_EDGE_PUNCT = ".,;:!?()[]\"'"
+
 # `hybrid` is deliberately absent. It is a valid runtime value of
 # contracts.Intent — the classifier's semantic fallback when a query resolves to
 # no target category — but it is not a category questions are authored against.
@@ -146,6 +154,94 @@ def check_voice(i: int, q: dict, errors: list[str]) -> None:
         errors.append(f"[{i}] invalid voice: {q.get('voice')!r}")
 
 
+def check_comparison_sources(i: int, q: dict, errors: list[str]) -> None:
+    """A comparison question cites at least one source from each project.
+
+    DEFINE MUST. A cross-project question anchored to one project can be
+    answered from one side only, and retrieval would then score as complete
+    on a comparison it never saw both halves of.
+    """
+    if q.get("intent") != "comparison":
+        return
+    cited = {
+        s.get("project")
+        for s in q.get("expected_source_paths") or []
+        if isinstance(s, dict)
+    }
+    missing = sorted(VALID_PROJECTS - cited)
+    if missing:
+        errors.append(f"[{i}] comparison question cites no source from: {missing}")
+
+
+def high_risk_tokens(answer: str) -> list[str]:
+    """Words of expected_answer that carry a digit: numbers, versions, ADR IDs.
+
+    ADR-011 Commitment 3's mechanical floor. A number, a version string like
+    `v4` and an ID like `ADR-007` are all words containing a digit, so one rule
+    covers the three, and the closed set never goes stale.
+    """
+    words = (w.strip(_EDGE_PUNCT) for w in answer.split())
+    return [w for w in words if any(c.isdigit() for c in w)]
+
+
+def check_grounding(
+    i: int, q: dict, errors: list[str], warnings: list[str], full: bool
+) -> None:
+    """Grounding evidence on in-scope questions (ADR-011 Commitment 3).
+
+    Incomplete evidence (no attestation, a high-risk word without a quote) warns
+    until the set reaches 50 and errors after, like the distribution check.
+    Wrong evidence (a quote from a source the question does not cite, a claim
+    that is not in the answer, a malformed entry) errors at any size.
+    """
+    where = f"[{i}]"
+    if should_fallback(q):
+        present = GROUNDING_FIELDS & set(q.keys())
+        if present:
+            errors.append(f"{where} {sorted(present)} not allowed on out-of-scope questions")
+        return
+
+    incomplete = errors if full else warnings
+    if q.get("grounding_verified") is not True:
+        incomplete.append(f"{where} grounding_verified must be true")
+
+    entries = q.get("grounding", [])
+    if not isinstance(entries, list):
+        errors.append(f"{where} grounding must be a list")
+        return
+    cited = {
+        (s.get("project"), s.get("path"))
+        for s in q.get("expected_source_paths") or []
+        if isinstance(s, dict)
+    }
+    answer = q.get("expected_answer") or ""
+    claims: list[str] = []
+    for j, entry in enumerate(entries):
+        at = f"{where}.grounding[{j}]"
+        if not isinstance(entry, dict):
+            errors.append(f"{at} must be a mapping with {sorted(GROUNDING_ENTRY_FIELDS)}")
+            continue
+        missing = GROUNDING_ENTRY_FIELDS - set(entry)
+        unknown = set(entry) - GROUNDING_ENTRY_FIELDS
+        if missing or unknown:
+            errors.append(f"{at} missing: {sorted(missing)}, unknown: {sorted(unknown)}")
+            continue
+        blank = sorted(k for k in GROUNDING_ENTRY_FIELDS
+                       if not isinstance(entry[k], str) or not entry[k].strip())
+        if blank:
+            errors.append(f"{at} must be non-empty strings: {blank}")
+            continue
+        if (entry["project"], entry["path"]) not in cited:
+            errors.append(f"{at} quotes a source the question does not cite")
+        if entry["claim"] not in answer:
+            errors.append(f"{at} claim is not a span of expected_answer")
+        claims.append(entry["claim"])
+
+    for token in high_risk_tokens(answer):
+        if not any(token in claim for claim in claims):
+            incomplete.append(f"{where} {token!r} in expected_answer needs a grounding quote")
+
+
 def check_distribution(data: list, errors: list[str], warnings: list[str]) -> None:
     """Enforce 22/18/5/5 once the set is full; report progress until then."""
     counts = Counter(q.get("intent") for q in data if isinstance(q, dict))
@@ -185,7 +281,7 @@ def main() -> int:
         missing = REQUIRED_FIELDS - set(q.keys())
         if missing:
             errors.append(f"[{i}] missing fields: {missing}")
-        unknown = set(q.keys()) - REQUIRED_FIELDS - ADVERSARIAL_FIELDS
+        unknown = set(q.keys()) - REQUIRED_FIELDS - ADVERSARIAL_FIELDS - GROUNDING_FIELDS
         if unknown:
             errors.append(f"[{i}] unknown fields: {sorted(unknown)}")
         if q.get("provenance") not in VALID_PROVENANCE:
@@ -199,6 +295,8 @@ def main() -> int:
         check_coherence(i, q, errors)
         check_adversarial_fields(i, q, errors)
         check_voice(i, q, errors)
+        check_comparison_sources(i, q, errors)
+        check_grounding(i, q, errors, warnings, full=len(data) >= TARGET_TOTAL)
 
     check_distribution(data, errors, warnings)
 

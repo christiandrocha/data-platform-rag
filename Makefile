@@ -139,6 +139,7 @@ eval-ci:
 golden-set-check:
 	$(PYTHON) scripts/validate_golden_set.py
 	$(PYTHON) scripts/golden_set_coverage.py
+	$(PYTHON) scripts/check_contamination.py --skip-without-snapshot $(if $(CORPUS_DIR),--corpus-dir $(CORPUS_DIR))
 
 golden-set-next:
 	@$(PYTHON) scripts/golden_set_coverage.py --next

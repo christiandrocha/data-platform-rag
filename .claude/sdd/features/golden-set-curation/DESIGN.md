@@ -3,13 +3,20 @@
 > Implements [DEFINE.md](./DEFINE.md) (Clarity Score 14/15). Direction set by
 > [BRAINSTORM.md](./BRAINSTORM.md): A4 + B4 + C3 + D2→D4.
 
+> **Revision 2026-09-22.** This DESIGN was written on 2026-09-14, before the
+> recall, sparse and reranker features. Part of it was built since, some of it
+> beyond what is written here, and some of it not at all. The sections below
+> now describe the repo as it is, mark what is still to build, and record two
+> decisions taken on the revision: the mechanical contamination check **will
+> be built**, and incomplete coverage **warns** below 50 questions.
+
 ## Metadata
 
 | Field | Value |
 |-------|-------|
 | Feature | golden-set-curation |
 | Depends on | [DEFINE.md](./DEFINE.md) |
-| Status | Draft |
+| Status | Approved 2026-09-22 — revised against the repo as built (see *Revision 2026-09-22*) |
 | ADR needed | **Yes** — [ADR-011](../../../../docs/adr/ADR-011-golden-set-curation.md), Accepted 2026-09-14 |
 
 ## Architecture overview
@@ -19,18 +26,29 @@ instrument is data plus the tooling that keeps it honest.
 
 ```
 docs/golden-set/
-├── evaluation_questions.yml     ← 50 questions (the instrument)
-├── corpus_inventory.yml         ← NEW: the 21 ADRs, so coverage is checkable
+├── evaluation_questions.yml     ← 50 questions (the instrument); 5 today
+├── corpus_inventory.yml         ← built: seed + 21 ADRs + 61 architecture units
 └── README.md                    ← schema + distribution + curation rules
 
 scripts/
-├── validate_golden_set.py       ← EXTENDED: pairing + grounding checks
-├── golden_set_coverage.py       ← NEW: generates the ADR × intent matrix
-└── check_contamination.py       ← NEW: 8-word verbatim overlap detector
+├── validate_golden_set.py       ← built; TO BUILD: grounding + comparison checks
+├── golden_set_coverage.py       ← built (matrix, --next, --next-architecture,
+│                                   --next-comparison-pair); TO BUILD: warn below 50
+├── check_contamination.py       ← TO BUILD: 8-word verbatim overlap detector
+├── verify_adversarials.py       ← built: Layer 1, literal probes (ADR-011)
+└── audit_questions.py           ← built: Layer 2, Opus auditor (T1)
 
 Makefile
-└── golden-set-check             ← EXTENDED: validate + coverage (+ contamination when a clone is present)
+├── golden-set-check             ← validate + coverage; TO BUILD: + contamination
+├── golden-set-next[-architecture|-comparison-pair]   ← built
+├── verify-adversarials          ← built
+└── audit-adversarials           ← built
 ```
+
+Every script that reads the corpus resolves it through
+`data_platform_rag.indexer.corpus` (`resolve_snapshot`, `in_corpus_files`): the
+newest `/tmp/dpr-corpus-*` by default, `--corpus-dir` to override (ADR-012).
+None declares its own file set.
 
 Three properties the tooling must have, because the failure modes are all silent:
 
@@ -45,23 +63,33 @@ Three properties the tooling must have, because the failure modes are all silent
 
 ## Data contracts
 
-### `evaluation_questions.yml` — two new fields
+### `evaluation_questions.yml` — fields built, and the two still to build
 
 ```yaml
 - id: q001
+  provenance: human                 # built — human | llm (ADR-011 retreat A3)
+  voice: technical                  # built — recruiter | technical (DESIGN T4)
   intent: decision                  # decision | architecture | comparison | out-of-scope
   question: "..."
   expected_answer: "..."            # null iff intent is out-of-scope
   expected_source_paths:
     - project: sdd-kafka-snowflake-2
-      path: docs/adr/ADR-0029.md
-  grounding_verified: true          # NEW — required for in-scope questions
-  grounding:                        # NEW — required only for claims that are
-    - claim: "v4 connector managed pipes met the latency target"
+      path: docs/adr/0029_snowpipe_streaming_as_the_ingestion_path.md
+  grounding_verified: true          # TO BUILD — required for in-scope questions
+  grounding:                        # TO BUILD — required only for high-risk claims
+    - claim: "<the claim span from expected_answer>"
       project: sdd-kafka-snowflake-2
-      path: docs/adr/ADR-0029.md
-      quote: "managed pipes reduced end-to-end latency to ..."
+      path: docs/adr/0029_snowpipe_streaming_as_the_ingestion_path.md
+      quote: "<verbatim text from that file>"
+
+- id: q005
+  intent: out-of-scope
+  contamination_probes: ["Apache Flink", "Kafka Streams"]  # built — out-of-scope only
+  grep_verified: 2026-09-14                                # built — out-of-scope only
 ```
+
+The `claim` and `quote` above are placeholders on purpose: an example quote
+invented here would be exactly the unsupported claim this field exists to catch.
 
 **`grounding` is deliberately partial, and that is a weakening of D2.** Full
 clause-by-clause evidence for 45 questions is roughly 135 quote entries —
@@ -75,11 +103,18 @@ rest.
 ### `corpus_inventory.yml` — new file
 
 ```yaml
+seed: 20260914                       # ADR-011: immutable for this generation
+verified_against_clone: 2026-09-14
 sdd-kafka-snowflake-2:
-  adrs: [docs/adr/ADR-0019.md, ...]   # 12 entries
+  adrs: [docs/adr/0018_dedicated_postgres_for_dagster_storage.md, ...]  # 12
+  architecture: [README.md#TL;DR, ..., dbt/macros/resolve_cdc.sql]      # 25
 sdd-kafka-databricks:
-  adrs: [docs/adr/ADR-001.md, ...]    #  9 entries
+  adrs: [docs/adr/001_databricks_vs_snowflake.md, ...]                  #  9
+  architecture: [README.md#TL;DR, ..., contracts/users_mssql.yml]       # 36
 ```
+
+The `architecture` list is the coverage universe for `architecture` questions.
+Which 17 of its 61 units get a question is decided in T4, not by this file.
 
 Coverage cannot be derived from `expected_source_paths` alone: that tells you
 which ADRs *are* cited, never which exist and are missing — the exact gap the
@@ -94,11 +129,12 @@ inventory against the clone. Recorded rather than solved.
 
 | Interface | Change |
 |-----------|--------|
-| `scripts/validate_golden_set.py` | Enforce answer/source coherence against `intent` (out-of-scope ⟹ null answer and no sources; in-scope ⟹ both present); require `grounding_verified is True` for non-fallback questions (error only once the set reaches 50); require `grounding` entries for claims carrying numbers or named mechanisms |
-| `scripts/golden_set_coverage.py` | New. Reads both YAML files, prints an ADR × intent matrix, exits 1 if any inventory ADR has zero questions |
-| `scripts/check_contamination.py` | New. `--corpus-dir PATH` required; reports any question sharing an 8-word verbatim span with a cited source; exits 1 on any hit. Skips with an explicit message (not a silent pass) when no corpus dir is given |
-| `scripts/reverify_adversarials.py` | New. Re-greps every `intent: out-of-scope` question against both corpora. **Non-zero exit on any match**, wired as a blocking precondition of `make eval` / `make eval-ci` per ADR-011 |
-| `make golden-set-check` | Runs validate + coverage. Contamination runs only with `CORPUS_DIR` set |
+| `scripts/validate_golden_set.py` | **Built:** required fields, `provenance`, `voice`, `intent`, `{project, path}` sources, answer/source coherence against `intent`, adversarial fields (`contamination_probes` ≥ 1, `grep_verified`) on out-of-scope only, 22/18/5/5 distribution (warn below 50, error at 50). **To build:** `grounding_verified is True` on in-scope questions and a `grounding` quote for any claim span with a digit, a version or an `ADR-\d+` (warn below 50, error at 50); every `comparison` question cites at least one source from each project (DEFINE MUST) |
+| `scripts/golden_set_coverage.py` | **Built:** ADR × intent matrix; `--next`, `--next-architecture`, `--next-comparison-pair` in seeded walk order. **To build:** while the set has fewer than 50 questions, uncovered ADRs are a warning and the exit is 0; at 50, any uncovered ADR exits 1. Today it exits 1 whenever an ADR is uncovered, which contradicts property 3 above |
+| `scripts/check_contamination.py` | **To build.** Reports any question whose text shares an 8-word verbatim span with one of its cited sources, after lowercasing and collapsing whitespace; exits 1 on any hit. Reads cited files only through `corpus.in_corpus_files`, from the snapshot `resolve_snapshot` returns (`--corpus-dir` overrides). With no snapshot on disk it prints an explicit skip and exits 0 — never a silent pass |
+| `scripts/verify_adversarials.py` | **Built.** Layer 1: case-sensitive literal probes against the in-corpus files of both repos; non-zero exit on any match. **Not yet wired** as a precondition of `make eval` / `make eval-ci`: `run_evaluation.py` is a stub, so the wiring belongs to the RAGAS feature (ADR-008), which inherits it from ADR-011 |
+| `scripts/audit_questions.py` | **Built.** Layer 2, `claude-opus-5`, advisory only (T1); `--adversarial` for paraphrase contamination |
+| `make golden-set-check` | **Built:** validate + coverage. **To build:** + `check_contamination.py`, which skips loudly when no snapshot exists |
 | Config | None. No new env vars, no `settings.*` additions |
 | `contracts.py` | None. The golden set is a file format, not an inter-module boundary — it crosses into Python only via `evaluation/golden_set_loader.py`, which does not exist yet and belongs to the RAGAS feature |
 
@@ -134,19 +170,24 @@ inventory against the clone. Recorded rather than solved.
 - **No `grounding` field; trust the author (D1).** Rejected: the failure is
   silent and expensive. A wrong expected answer looks exactly like a retrieval
   bug, and someone spends a day debugging the pipeline.
-- **Contamination check in CI.** Rejected for now: CI has no corpus clone, and
-  cloning both repos on every push to run a lint-grade check is disproportionate.
-  Deferred to ADR-008, which owns CI evaluation.
+- **Contamination check in CI.** Rejected for now, on a revised reason. The
+  2026-09-14 reason was that CI has no corpus clone; ADR-012 has since given CI
+  one (`make fetch-corpus`, used by `ragas.yml`). The check stays out of `ci.yml`
+  because it guards authoring, which happens locally, and fetching the corpus on
+  every push for it is disproportionate. Deferred to ADR-008, which owns CI
+  evaluation and already fetches the corpus.
 - **Derive coverage from `expected_source_paths` alone, no inventory.**
   Rejected: structurally cannot detect an uncited ADR, which is the only thing
   the check exists to find.
 
 ## Test plan
 
-### Unit tests — `tests/unit/test_validate_golden_set.py` (new)
+### Unit tests — `tests/unit/test_validate_golden_set.py` (built: 25 tests)
 
-The validator is currently untested, which is why a format change is the right
-moment to add tests. Each check is a pure function over parsed YAML:
+Built and passing: `should_fallback`, `check_sources`, `check_coherence`,
+adversarial fields, `check_distribution`, `check_voice`. Still to add, as pure
+functions over parsed YAML: `check_grounding` and the comparison-sources rule.
+The original list, kept for the record:
 
 - `check_sources`: rejects bare strings, missing `project`, missing `path`,
   unknown keys, a project outside `SourceProject`, a non-string path
@@ -159,12 +200,27 @@ moment to add tests. Each check is a pure function over parsed YAML:
   errors; fallback questions are exempt; a claim containing a digit without a
   `grounding` quote errors
 - Duplicate-id and missing-field detection (existing behaviour, currently untested)
+- `check_comparison_sources` (to build): rejects a `comparison` question whose
+  sources all come from one project; accepts one source from each
 
-### Integration tests — `tests/integration/test_golden_set_files.py` (new)
+### Unit tests — `tests/unit/test_check_contamination.py` (to build)
+
+- An 8-word span shared with the cited text is a hit; a 7-word span is not
+- Case and whitespace differences do not hide a hit
+- Only the question's own cited sources are compared, not the whole corpus
+- No snapshot on disk: explicit skip message, exit 0
+
+### Unit tests — coverage warning (to build)
+
+- Below 50 questions with uncovered ADRs: warning, exit 0
+- At 50 with an uncovered ADR: exit 1
+
+### Integration tests — `tests/integration/test_golden_set_files.py` (to build)
 
 - The real `evaluation_questions.yml` parses and validates clean (exit 0)
-- `golden_set_coverage.py` against the real inventory exits 1 while the set is
-  incomplete and names the uncovered ADRs
+- `golden_set_coverage.py` against the real inventory warns and exits 0 while
+  the set is incomplete, and names the uncovered ADRs *(revised 2026-09-22: was
+  "exits 1")*
 - Every `project` value in the real file is a member of `contracts.SourceProject`
   — catches divergence between the YAML vocabulary and the pydantic Literal,
   which are maintained in two places
@@ -188,12 +244,17 @@ No schema migration, no database, no user-visible surface. Order matters only
 because the validator tightens:
 
 1. Add `grounding_verified` to the 4 existing non-fallback questions. q005 is
-   exempt (`expected_answer: null`).
+   exempt (`expected_answer: null`). **To build.**
 2. Land the validator changes with the new checks at **warning** severity below
-   50 questions, so curation can proceed without a red build.
-3. Add `corpus_inventory.yml` and `golden_set_coverage.py`.
-4. Author the 45 questions (the long pole — days, not hours).
-5. At 50, all checks flip to error automatically via the existing threshold
+   50 questions, so curation can proceed without a red build. **Partly built**:
+   grounding and comparison checks remain.
+3. Add `corpus_inventory.yml` and `golden_set_coverage.py`. **Built**; the
+   warning below 50 remains.
+4. Add `check_contamination.py` and wire it into `make golden-set-check`.
+   **To build** (decided 2026-09-22).
+5. Author the 45 questions (the long pole — days, not hours), from the angles in
+   [INTERVIEWER_THEMES.md](./INTERVIEWER_THEMES.md) (T4).
+6. At 50, all checks flip to error automatically via the existing threshold
    logic. No code change at the flip.
 
 **Rollback:** revert the YAML and the scripts. Nothing else depends on them yet;
@@ -217,9 +278,17 @@ raised and needs a decision before the ADR is written.
 | 5 | How is grounding recorded? | **Resolved — `grounding_verified` on every non-fallback question, plus `grounding` quotes only for claims carrying numbers or named mechanisms.** A deliberate, documented weakening of strict D2; rationale in Data contracts |
 
 - [x] ~~ADR number.~~ **RESOLVED.** Golden-set methodology is ADR-011 (Accepted
-      2026-09-14). The `rerank_top_k` decision becomes ADR-012 if and when Phase 5
-      calibration justifies changing the value; recorded as a candidate in the
-      dev log, deliberately unwritten.
+      2026-09-14). *(Revised 2026-09-22: this line used to reserve ADR-012 for a
+      `rerank_top_k` decision. ADR-012 became the corpus snapshot lifecycle, and
+      ADR-005 rejected the reranker on 2026-09-21, so no such ADR is pending.)*
+- [ ] **Real interview questions (DEFINE SHOULD).** Questions Christian was
+      actually asked about these projects are the strongest provenance the set
+      can have, and they fit the technical-interviewer focus of T4. Open: whether
+      any exist and can be recorded before authoring starts.
+- [ ] **T4's 17 architecture units are not machine-readable.** `make
+      golden-set-next-architecture` walks all 61 and will propose units outside
+      the list. BUILD decides whether the list moves into `corpus_inventory.yml`
+      or the author skips by hand.
 
 ## Resolved tension points
 

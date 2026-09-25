@@ -55,6 +55,10 @@ once, with its reason, not by drifting.
   ADR-006/007, and its Snowflake latency and cost rows (lines 24, 28) describe
   classic Snowpipe and a per-query billing model the Snowflake project's own ADRs
   contradict.
+- ADR-0018 → q013, 2026-09-25. One minor finding, kept by the author: "too
+  fragile for concurrent runs" folds line 9's two problems (concurrent writes,
+  crash fragility) into one. Lines 56–57 cite an off-corpus design doc that
+  "supersedes this ADR's original text"; no answer should depend on it.
 
 ## Open drafts — question written, `expected_answer` pending
 

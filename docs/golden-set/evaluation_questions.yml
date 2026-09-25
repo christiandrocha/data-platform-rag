@@ -161,4 +161,15 @@
       path: docs/adr/001_databricks_vs_snowflake.md
   grounding_verified: true
 
+- id: q013
+  provenance: human
+  voice: technical
+  intent: decision
+  question: "Why use a separate PostgreSQL database for Dagster instead of reusing the main CDC source?"
+  expected_answer: "SQLite was too fragile for concurrent runs. Reusing the main CDC database would create a circular dependency: if the source database crashes, the orchestrator would crash with it and be unable to report the failure. We added a dedicated Postgres instance without logical replication to keep them independent. The trade-off is managing an extra service, and we still have open technical debt because run history retention is not configured."
+  expected_source_paths:
+    - project: sdd-kafka-snowflake-2
+      path: docs/adr/0018_dedicated_postgres_for_dagster_storage.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

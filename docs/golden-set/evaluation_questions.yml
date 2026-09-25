@@ -183,4 +183,15 @@
       path: docs/adr/005_gold_dimension_join_integrity.md
   grounding_verified: true
 
+- id: q015
+  provenance: human
+  voice: technical
+  intent: decision
+  question: "How do you prevent runaway Snowflake credit consumption, and what hard lesson did you learn about cost guardrails?"
+  expected_answer: "The main defense against burning credits is a Resource Monitor acting as a hard stop on spending. But we hit a snag: our documentation described two completely different monitors, creating confusion about what was actually enforced. Instead of just guessing which document was right, we decided to treat the versioned SQL script as our reference, and then query the live Snowflake account to verify the actual state. The check revealed that neither monitor existed, and the script we trusted wasn't even in the repository yet. We wrote and applied the correct monitor that same day. The biggest takeaway was that you can never close the question based on documentation alone; you always have to verify the guardrails directly against the live environment."
+  expected_source_paths:
+    - project: sdd-kafka-snowflake-2
+      path: docs/adr/0020_resource_monitor_canonicalization.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

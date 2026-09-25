@@ -227,4 +227,15 @@
       path: docs/adr/006_lakeflow_migration.md
   grounding_verified: true
 
+- id: q019
+  provenance: human
+  voice: technical
+  intent: decision
+  question: "When migrating to the newer Kafka connector, why did you decide to retain the metadata variant column instead of relying purely on the new typed columns?"
+  expected_answer: "We initially assumed the newer connector's schematization would remove all semi-structured columns. However, we realized that losing the metadata column would strip away our incremental watermark and our deduplication tiebreaker. After inspecting the connector's internal code, we confirmed the metadata column was still being generated. We decided to keep it, using the Kafka offset as a strict per-partition tiebreaker and the creation time for the watermark. This was much safer than trying to invent a synthetic timestamp during the transformation step, which happens at the wrong time, or relying on business timestamps that can be null or backdated."
+  expected_source_paths:
+    - project: sdd-kafka-snowflake-2
+      path: docs/adr/0028_record_metadata_as_watermark.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

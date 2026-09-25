@@ -112,6 +112,11 @@ once, with its reason, not by drifting.
   Resource Monitor trigger actions cannot be verified with the repo's
   credentials, which may conflict with ADR-0020's same-day creation of the
   monitor; no answer should lean on either.
+- ADR-0022 → q023, 2026-09-25. No audit findings. The answer scopes the saving to
+  "that specific bill", avoiding line 28's "Cost is charged on ingestion volume,
+  not on transformation", which read literally contradicts the warehouse-compute
+  billing ADR-0019 and ADR-0020 rest on. Last ADR in the walk: all 21 now have a
+  question.
 
 ## Open drafts — question written, `expected_answer` pending
 

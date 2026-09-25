@@ -23,7 +23,8 @@ once, with its reason, not by drifting.
 
 - D1 → q006, 2026-09-25. The answer's 8-word check ran against the local clone
   of `sdd-kafka-databricks`, not a snapshot (the `/tmp` snapshot was gone);
-  `check_contamination.py` still has to confirm it after `make fetch-corpus`.
+  `check_contamination.py` confirmed it the same day against snapshot
+  `dpr-corpus-20260925-173826` (`sdd-kafka-databricks` at `f1295df9`).
 
 ## Open drafts — question written, `expected_answer` pending
 

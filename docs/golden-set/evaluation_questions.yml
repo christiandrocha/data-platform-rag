@@ -134,4 +134,20 @@
       path: docs/adr/009_naming_standardization.md
   grounding_verified: true
 
+- id: q011
+  provenance: human
+  voice: technical
+  intent: decision
+  question: "Why did you move the pipeline trigger from Dagster polling into Snowflake Tasks, and how does that save compute costs?"
+  expected_answer: "The old Dagster sensor kept waking up the warehouse every minute just to check for new data, meaning we paid for compute even when nothing arrived. We moved the gate into Snowflake by adding a Stream and a Task with a WHEN clause for each Tier-1 domain. Snowflake checks if the stream has data in its control plane, so a negative answer costs nothing. Since the Stream watches the actual Bronze table, it only triggers after Snowpipe commits the row, removing the guesswork of Kafka-side triggers. Dagster still runs the dbt jobs; it just stopped doing the polling."
+  expected_source_paths:
+    - project: sdd-kafka-snowflake-2
+      path: docs/adr/0019_streams_and_triggered_tasks_as_the_gate.md
+  grounding_verified: true
+  grounding:
+    - claim: "for each Tier-1 domain"
+      project: sdd-kafka-snowflake-2
+      path: docs/adr/0019_streams_and_triggered_tasks_as_the_gate.md
+      quote: "One `STREAM` per Bronze table (the 10 Tier-1 domains of"
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

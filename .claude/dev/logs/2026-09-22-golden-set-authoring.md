@@ -106,6 +106,12 @@ once, with its reason, not by drifting.
   (line 33 says observed, not random). The angle (client-side validation) avoids
   q001 and q019. Line 55's "Two … configuration keys" lists four. First question
   of the q021–q025 batch.
+- ADR-0027 → q022, 2026-09-25. No audit findings. The answer stays close to the
+  ADR's wording (a 7-word run from line 28); `check_contamination.py` checks
+  questions only, and the question shares no 8-word run. Lines 85–88 say the
+  Resource Monitor trigger actions cannot be verified with the repo's
+  credentials, which may conflict with ADR-0020's same-day creation of the
+  monitor; no answer should lean on either.
 
 ## Open drafts — question written, `expected_answer` pending
 

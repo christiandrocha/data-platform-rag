@@ -249,4 +249,15 @@
       path: docs/adr/008_delete_handling.md
   grounding_verified: true
 
+- id: q021
+  provenance: human
+  voice: technical
+  intent: decision
+  question: "Why do you treat the Schema Registry as the absolute source of truth for data types during ingestion, rather than letting the destination system infer them?"
+  expected_answer: "We configured the connector to use client-side validation so it reads data types directly from the Schema Registry. We already enforce strict backward compatibility there, meaning the types are intentionally curated and trusted. If we relied on server-side validation, the system would infer types from the very first record it sees, carrying a documented risk of type demotion. For instance, a floating-point column could be demoted to an integer if the initial record contained a whole number. The registry is a much safer authority because the schema is explicitly decided by design, rather than merely inferred from observation."
+  expected_source_paths:
+    - project: sdd-kafka-snowflake-2
+      path: docs/adr/0021_kafka_connector_v4_schematization.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

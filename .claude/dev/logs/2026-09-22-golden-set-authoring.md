@@ -50,6 +50,11 @@ once, with its reason, not by drifting.
   reads as applied although it was reverted.
 - ADR-0019 → q011, 2026-09-25. No audit findings. "Tier-1" is grounded by a
   verbatim quote from line 22. First question of the q011–q015 batch.
+- ADR-001 → q012, 2026-09-25. No audit findings. The answer keeps to the parts of
+  ADR-001 that still hold: its Lakeflow rejection (line 36) was overtaken by
+  ADR-006/007, and its Snowflake latency and cost rows (lines 24, 28) describe
+  classic Snowpipe and a per-query billing model the Snowflake project's own ADRs
+  contradict.
 
 ## Open drafts — question written, `expected_answer` pending
 

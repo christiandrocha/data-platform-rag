@@ -150,4 +150,15 @@
       path: docs/adr/0019_streams_and_triggered_tasks_as_the_gate.md
       quote: "One `STREAM` per Bronze table (the 10 Tier-1 domains of"
 
+- id: q012
+  provenance: human
+  voice: technical
+  intent: decision
+  question: "Why did you choose Databricks as the destination for this pipeline instead of sticking with Snowflake, and what specific features drove that decision?"
+  expected_answer: "We kept the upstream Kafka, Debezium, and PostgreSQL setup exactly the same, but swapped the destination layer to Databricks. The main drivers for this were the native GitOps orchestration provided by Databricks Asset Bundles, built-in data governance with Unity Catalog, and the ability for compute to scale down to zero when idle. It gave us a more unified ecosystem without needing external orchestration tools."
+  expected_source_paths:
+    - project: sdd-kafka-databricks
+      path: docs/adr/001_databricks_vs_snowflake.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

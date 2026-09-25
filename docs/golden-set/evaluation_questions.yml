@@ -101,4 +101,15 @@
       path: docs/adr/0025_bronze_is_append_only.md
   grounding_verified: true
 
+- id: q008
+  provenance: human
+  voice: technical
+  intent: decision
+  question: "Why did you choose to unwrap the Debezium envelope using a Single Message Transform in Kafka Connect, rather than handling it later in Databricks?"
+  expected_answer: "We apply the ExtractNewRecordState transform inside Kafka Connect so the data lands in Bronze as flat rows, complete with the operation and timestamp markers. This makes the Spark code much simpler because we don't have to parse nested Avro structures. We still maintain the append-only nature and CDC tracking. The main trade-off is losing the \"before\" state, but since our pipeline is unidirectional and PostgreSQL remains the source of truth, we don't actually need the raw envelope for replay purposes."
+  expected_source_paths:
+    - project: sdd-kafka-databricks
+      path: docs/adr/002_smt_and_bronze.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

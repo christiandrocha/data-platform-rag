@@ -30,6 +30,10 @@ once, with its reason, not by drifting.
   words in 8-word runs). The author then wrote q007 fresh, having read that draft:
   against it, the answer shares no 8-word or 5-word run. Recorded so the Layer 2
   audit can weigh it.
+- ADR-002 → q008, 2026-09-25. Two audit rounds: one sentence made the
+  unidirectional topology the cause of simpler code (ADR-002 keeps them as
+  separate points), and "JSON" contradicted the Avro envelope (line 40). Both
+  were fixed by the author.
 
 ## Open drafts — question written, `expected_answer` pending
 

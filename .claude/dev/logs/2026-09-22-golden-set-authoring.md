@@ -34,6 +34,12 @@ once, with its reason, not by drifting.
   unidirectional topology the cause of simpler code (ADR-002 keeps them as
   separate points), and "JSON" contradicted the Avro envelope (line 40). Both
   were fixed by the author.
+- ADR-0026 → q009, 2026-09-25. Two audit findings, both fixed by the author:
+  "we haven't incrementalized anything yet" contradicted the two models already
+  incremental (lines 22–23), and a partial refresh was said to break every global
+  ratio, against the low-cardinality exception (line 23). The ADR itself has two
+  gaps that no answer should lean on: line 51 counts two `table` candidates where
+  its table shows three, and line 14 names two corrections but describes one.
 
 ## Open drafts — question written, `expected_answer` pending
 

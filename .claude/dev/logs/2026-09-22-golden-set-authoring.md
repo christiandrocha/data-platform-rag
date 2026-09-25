@@ -82,6 +82,13 @@ once, with its reason, not by drifting.
   before it did (line 17) and only the original sensor had the bug (lines 18, 55).
   "Code review" is slightly more specific than line 17's "independent second
   opinion"; kept.
+- ADR-006 → q018, 2026-09-25. One minor finding, kept by the author:
+  "guarantees" is stronger than the ADR, which says the per-domain registration
+  loop and the uniqueness join were not verified live (lines 92–95). The angle
+  (quarantine without a native action) was chosen to avoid duplicating q002.
+  ADR-006's "not migrated" list was overtaken by ADR-007; its counts disagree
+  (20 + 10 migrated at line 24, "31" at lines 84–85); "ADR-06" at line 91 is
+  unexplained.
 
 ## Open drafts — question written, `expected_answer` pending
 

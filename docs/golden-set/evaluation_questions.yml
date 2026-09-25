@@ -194,4 +194,15 @@
       path: docs/adr/0020_resource_monitor_canonicalization.md
   grounding_verified: true
 
+- id: q016
+  provenance: human
+  voice: technical
+  intent: decision
+  question: "In the early stages of the Databricks project, why did you choose to use parametrized notebooks for the Bronze and Silver layers instead of creating a separate notebook for each domain?"
+  expected_answer: "Instead of maintaining a massive fleet of static notebooks where a simple logic update would require modifying many files, we built generic notebooks that accepted configuration parameters via widgets. This gave us a centralized change point for any pipeline updates and made the orchestration configuration much cleaner, though a few special cases required either specific parameter overrides or a completely separate notebook."
+  expected_source_paths:
+    - project: sdd-kafka-databricks
+      path: docs/adr/003_parametrized_notebooks.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

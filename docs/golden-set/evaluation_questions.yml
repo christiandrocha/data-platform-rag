@@ -238,4 +238,15 @@
       path: docs/adr/0028_record_metadata_as_watermark.md
   grounding_verified: true
 
+- id: q020
+  provenance: human
+  voice: technical
+  intent: decision
+  question: "How does your pipeline handle source database deletions, and what hidden data corruption bug did you uncover during testing?"
+  expected_answer: "During manual testing, we uncovered a hidden flaw where deleting a record in the source database would have corrupted the corresponding row in our Silver layer instead of removing it. Our automated test data never actually issued deletions, which is why this path remained unexercised. By default, the database only logs the primary key when a row is deleted. This meant our change capture tool sent a rewrite message full of null values, which our upsert logic would have blindly applied, wiping out the actual data. To fix this, we configured all source tables to log the complete old row during changes. On the processing side, we instructed our streaming framework to explicitly recognize the deletion flag and properly delete the matching row from the target table. It is worth noting that while we successfully verified the source and messaging layers manually, the final processing layer is implemented but still awaiting live workspace validation."
+  expected_source_paths:
+    - project: sdd-kafka-databricks
+      path: docs/adr/008_delete_handling.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

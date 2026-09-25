@@ -19,14 +19,13 @@ unchanged, and `--next-architecture` still reports the walk; the author skips
 within it. If the order stops being followed at all, that is a decision to take
 once, with its reason, not by drifting.
 
+## Closed drafts
+
+- D1 → q006, 2026-09-25. The answer's 8-word check ran against the local clone
+  of `sdd-kafka-databricks`, not a snapshot (the `/tmp` snapshot was gone);
+  `check_contamination.py` still has to confirm it after `make fetch-corpus`.
+
 ## Open drafts — question written, `expected_answer` pending
-
-### D1 — decision, `sdd-kafka-databricks docs/adr/004_liquid_clustering.md`
-
-> Why does cluster_by have to match the MERGE key?
-
-Walk position 4/21. Contamination-checked on 2026-09-22 against the snapshot:
-no 8-word span shared with the ADR.
 
 ### D2 — architecture, `sdd-kafka-snowflake-2 README.md#Stack`
 

@@ -64,6 +64,12 @@ once, with its reason, not by drifting.
   `user_id` was enforced by hand, not by contract (lines 30–31). The ADR's "users
   has no YAML contract" (lines 31, 96) was overtaken by ADR-009 D3; its notebook
   names predate ADR-006/007.
+- ADR-0020 → q015, 2026-09-25. Two audit findings, both fixed by the author: "a
+  limit" dropped the two conflicting monitors (lines 8–14), and "never trust
+  documentation … cloud billing" overstated line 70's narrower lesson. Lines
+  59–60 (sensors consulting Prometheus) may be in tension with ADR-0019's
+  description of the old sensor; no answer should lean on either. Closes the
+  q011–q015 batch.
 
 ## Open drafts — question written, `expected_answer` pending
 

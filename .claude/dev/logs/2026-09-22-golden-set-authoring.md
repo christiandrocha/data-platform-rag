@@ -100,6 +100,12 @@ once, with its reason, not by drifting.
   Lines 110–111 ("Gold tables (full recompute …)") may conflict with ADR-004/005,
   which describe Gold MERGE; no answer should lean on it. Closes the q016–q020
   batch.
+- ADR-0021 → q021, 2026-09-25. Three audit findings, all fixed by the author:
+  "decimal" for the ADR's `FLOAT64` (a word the auditor's own summary had
+  introduced), "permanently locked" (not in the ADR), and "randomly observed"
+  (line 33 says observed, not random). The angle (client-side validation) avoids
+  q001 and q019. Line 55's "Two … configuration keys" lists four. First question
+  of the q021–q025 batch.
 
 ## Open drafts — question written, `expected_answer` pending
 

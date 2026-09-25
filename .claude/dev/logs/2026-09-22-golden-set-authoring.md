@@ -48,6 +48,8 @@ once, with its reason, not by drifting.
   `order_identifier` rename proceeds (reverted, lines 10–11), line 153 asks for
   a manual drop that lines 136–140 advise against, and D2's body (lines 46–53)
   reads as applied although it was reverted.
+- ADR-0019 → q011, 2026-09-25. No audit findings. "Tier-1" is grounded by a
+  verbatim quote from line 22. First question of the q011–q015 batch.
 
 ## Open drafts — question written, `expected_answer` pending
 

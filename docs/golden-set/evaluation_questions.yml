@@ -172,4 +172,15 @@
       path: docs/adr/0018_dedicated_postgres_for_dagster_storage.md
   grounding_verified: true
 
+- id: q014
+  provenance: human
+  voice: technical
+  intent: decision
+  question: "Why did you enforce uniqueness on the Silver join columns instead of just changing the merge key or relying on a row number filter in Gold?"
+  expected_answer: "We noticed some Gold tables were joining Silver dimensions on columns that were not the merge key, creating a risk of duplicate matches. We could not simply change the merge key, as that would break our Liquid Clustering alignment and alter the core CDC identity. Relying solely on a row number filter in Gold was also rejected, because it silently chooses a random row and hides data quality problems. Instead, we added a uniqueness check to the Silver contracts for those specific join columns. This sends any duplicates to quarantine so the issue remains visible, while keeping the row number filter as a secondary defense against historical data."
+  expected_source_paths:
+    - project: sdd-kafka-databricks
+      path: docs/adr/005_gold_dimension_join_integrity.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

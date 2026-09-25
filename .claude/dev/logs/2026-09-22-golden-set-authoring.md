@@ -59,6 +59,11 @@ once, with its reason, not by drifting.
   fragile for concurrent runs" folds line 9's two problems (concurrent writes,
   crash fragility) into one. Lines 56–57 cite an off-corpus design doc that
   "supersedes this ADR's original text"; no answer should depend on it.
+- ADR-005 → q014, 2026-09-25. Two minor findings, kept by the author: "random"
+  where the ADR says "arbitrary" (line 51), and "the Silver contracts" where
+  `user_id` was enforced by hand, not by contract (lines 30–31). The ADR's "users
+  has no YAML contract" (lines 31, 96) was overtaken by ADR-009 D3; its notebook
+  names predate ADR-006/007.
 
 ## Open drafts — question written, `expected_answer` pending
 

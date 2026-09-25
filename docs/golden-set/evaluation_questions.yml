@@ -123,4 +123,15 @@
       path: docs/adr/0026_gold_aggregation_categories.md
   grounding_verified: true
 
+- id: q010
+  provenance: human
+  voice: technical
+  intent: decision
+  question: "What were the main challenges when standardizing table prefixes and column names, and what unexpected issues came up during the live cutover?"
+  expected_answer: "We added layer prefixes to all table names and standardized foreign key names. We initially tried to rename some timestamp columns, but had to roll that back because Debezium passes the exact database column name through Kafka, meaning a renamed contract field would never actually arrive from the payload. We kept the foreign key changes because we updated the entire propagation chain end-to-end, including the source fixtures, ensuring everything stayed consistent. During the live cutover, we hit two snags: an export script crashed on a silver-only contract missing a Kafka topic, and the Auto Loader schema checkpoint didn't clear on a full refresh, forcing us to manually delete that folder so the pipeline wouldn't reuse the old schema."
+  expected_source_paths:
+    - project: sdd-kafka-databricks
+      path: docs/adr/009_naming_standardization.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

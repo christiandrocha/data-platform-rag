@@ -40,6 +40,14 @@ once, with its reason, not by drifting.
   ratio, against the low-cardinality exception (line 23). The ADR itself has two
   gaps that no answer should lean on: line 51 counts two `table` candidates where
   its table shows three, and line 14 names two corrections but describes one.
+- ADR-009 → q010, 2026-09-25. Three audit findings, all fixed by the author:
+  "broke the data flow" overstated a design reason (lines 13–15), "first" added
+  an ordering the ADR does not state (lines 22–24), and the question's "column
+  prefixes" named something the ADR does not do (it prefixes tables). The ADR
+  has three stale passages no answer should lean on: line 84 says the
+  `order_identifier` rename proceeds (reverted, lines 10–11), line 153 asks for
+  a manual drop that lines 136–140 advise against, and D2's body (lines 46–53)
+  reads as applied although it was reverted.
 
 ## Open drafts — question written, `expected_answer` pending
 

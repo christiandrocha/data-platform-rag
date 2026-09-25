@@ -93,6 +93,13 @@ once, with its reason, not by drifting.
   tiebreaker to one partition (line 41). The ADR does not discuss whether
   `CreateTime` is ordered across partitions, which ADR-0024's watermark lesson
   would make a fair interviewer probe; no answer should claim either way.
+- ADR-008 → q020, 2026-09-25. Two audit findings, both fixed by the author: the
+  first draft said the manual test corrupted a Silver row, where the test only
+  inspected the Kafka message and the corruption was never observed (lines 8–9,
+  23); "drop the record" became deleting the matching row (lines 38, 67–68).
+  Lines 110–111 ("Gold tables (full recompute …)") may conflict with ADR-004/005,
+  which describe Gold MERGE; no answer should lean on it. Closes the q016–q020
+  batch.
 
 ## Open drafts — question written, `expected_answer` pending
 

@@ -260,4 +260,15 @@
       path: docs/adr/0021_kafka_connector_v4_schematization.md
   grounding_verified: true
 
+- id: q022
+  provenance: human
+  voice: technical
+  intent: decision
+  question: "How do you decide whether a dbt test should be an error or a warning, and what is the core principle behind that choice?"
+  expected_answer: "We established a convention based on the actual consequence of the failure, rather than just the layer or column type. The core rule is that a test is an error if the violation, left unchecked, would make a business metric objectively wrong, such as a duplicate on a merge key. Conversely, it is a warning if the data is merely degraded but the system remains predictable. For example, a referential gap that simply drops rows the source database never had in the first place doesn't make the metric wrong, just incomplete. Interestingly, this convention was actually applied to our Silver and Gold tests before it was formally ratified, making the final approval a retroactive validation of what was already running."
+  expected_source_paths:
+    - project: sdd-kafka-snowflake-2
+      path: docs/adr/0027_severity_convention.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

@@ -25,6 +25,11 @@ once, with its reason, not by drifting.
   of `sdd-kafka-databricks`, not a snapshot (the `/tmp` snapshot was gone);
   `check_contamination.py` confirmed it the same day against snapshot
   `dpr-corpus-20260925-173826` (`sdd-kafka-databricks` at `f1295df9`).
+- ADR-0025 → q007, 2026-09-25. An AI-written draft was offered first and
+  rejected under ADR-011 Commitment 1 (a light edit of it still shared 51% of its
+  words in 8-word runs). The author then wrote q007 fresh, having read that draft:
+  against it, the answer shares no 8-word or 5-word run. Recorded so the Layer 2
+  audit can weigh it.
 
 ## Open drafts — question written, `expected_answer` pending
 

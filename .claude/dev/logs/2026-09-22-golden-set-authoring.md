@@ -70,6 +70,13 @@ once, with its reason, not by drifting.
   59–60 (sensors consulting Prometheus) may be in tension with ADR-0019's
   description of the old sensor; no answer should lean on either. Closes the
   q011–q015 batch.
+- ADR-003 → q016, 2026-09-25. One audit finding, fixed by the author: "eventually
+  … with conditional logic" misdescribed the special cases, which were known at
+  decision time and included a separate notebook for `users` (lines 32–35). The
+  question is framed historically because ADR-006/007 superseded ADR-003 although
+  its status still reads Accepted. ADR-003's "60 notebooks" does not follow from
+  its own 20 + 12 domains, and ADR-006 counts 11 Silver runs, not 12. First
+  question of the q016–q020 batch.
 
 ## Open drafts — question written, `expected_answer` pending
 

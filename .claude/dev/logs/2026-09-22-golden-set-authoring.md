@@ -77,6 +77,11 @@ once, with its reason, not by drifting.
   its status still reads Accepted. ADR-003's "60 notebooks" does not follow from
   its own 20 + 12 domains, and ADR-006 counts 11 Silver runs, not 12. First
   question of the q016–q020 batch.
+- ADR-0024 → q017, 2026-09-25. One audit finding, fixed by the author: the first
+  draft said the new cursor had skipped rows, where the ADR says review caught it
+  before it did (line 17) and only the original sensor had the bug (lines 18, 55).
+  "Code review" is slightly more specific than line 17's "independent second
+  opinion"; kept.
 
 ## Open drafts — question written, `expected_answer` pending
 

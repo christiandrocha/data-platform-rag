@@ -79,4 +79,15 @@
     - "Kafka Streams"
   grep_verified: 2026-09-14
 
+- id: q006
+  provenance: human
+  voice: technical
+  intent: decision
+  question: "Why does cluster_by have to match the MERGE key?"
+  expected_answer: "Liquid clustering accelerates MERGE operations only when the MERGE key appears among the clustering columns. The query planner reads file statistics to skip any file that cannot contain matching records. Without this alignment, every MERGE triggers a full table scan, negating the optimization. The project's CI (test_contracts.py) validates this requirement automatically before deployment."
+  expected_source_paths:
+    - project: sdd-kafka-databricks
+      path: docs/adr/004_liquid_clustering.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

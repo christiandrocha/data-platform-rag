@@ -90,4 +90,15 @@
       path: docs/adr/004_liquid_clustering.md
   grounding_verified: true
 
+- id: q007
+  provenance: human
+  voice: technical
+  intent: decision
+  question: "Why is the Bronze layer strictly insert-only, and what actually breaks if someone updates a row there?"
+  expected_answer: "We only allow inserts in Bronze because our Streams are set to append-only, and the Silver layer expects deletes to arrive as new rows, not as changes to existing ones. If someone manually updates a Bronze row, the Stream just ignores it. Silver never gets the fix, and the two layers quietly get out of sync without any errors. A suggested fix is to simply revoke update and delete permissions for the CDC role on those tables."
+  expected_source_paths:
+    - project: sdd-kafka-snowflake-2
+      path: docs/adr/0025_bronze_is_append_only.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

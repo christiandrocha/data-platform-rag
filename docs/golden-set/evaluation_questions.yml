@@ -205,4 +205,15 @@
       path: docs/adr/003_parametrized_notebooks.md
   grounding_verified: true
 
+- id: q017
+  provenance: human
+  voice: technical
+  intent: decision
+  question: "Why did you remove the global timestamp cursor from the Dagster sensor, and what specific failure mode were you trying to prevent?"
+  expected_answer: "We initially tried adding a global timestamp cursor to the rewritten sensor. But a code review caught that this would reintroduce a bug the project had already experienced once: because tasks fire independently, a busy domain could advance the shared cursor, causing older rows from quieter domains to silently fall behind it and be skipped. To prevent this, we dropped the time filter entirely. Now, the sensor simply queries for rows where the consumed flag remains false. This ensures every row is processed a single time without relying on a false assumption about event ordering. We do have one piece of open technical debt, though: there is not yet an automated regression test covering this specific scenario."
+  expected_source_paths:
+    - project: sdd-kafka-snowflake-2
+      path: docs/adr/0024_sensor_without_global_watermark.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

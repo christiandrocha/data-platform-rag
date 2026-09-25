@@ -271,4 +271,15 @@
       path: docs/adr/0027_severity_convention.md
   grounding_verified: true
 
+- id: q023
+  provenance: human
+  voice: technical
+  intent: decision
+  question: "Why did you decide to cut the number of ingested domains in half, and what was the main trade-off of that decision?"
+  expected_answer: "We audited the actual dbt code and discovered that half of our source tables never fed into the downstream Silver or Gold layers; they just stopped at the raw landing zone. Because the newer connector bills based on ingestion volume, keeping those unused tables in the pipeline was a recurring cost with zero business value. Simply skipping them in the transformation step wouldn't have reduced that specific bill, so we had to remove them from the ingestion scope entirely. A perfect example is the payments table: it sounds essential by name, but the project owner confirmed it was actually orphaned, and the real payment flow was handled by a different event table. The trade-off is that we can no longer demo those dropped domains end-to-end if a client asks, but we knowingly accepted that to eliminate wasted ingestion spend."
+  expected_source_paths:
+    - project: sdd-kafka-snowflake-2
+      path: docs/adr/0022_tier_1_ingestion_scope.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

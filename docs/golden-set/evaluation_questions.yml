@@ -216,4 +216,15 @@
       path: docs/adr/0024_sensor_without_global_watermark.md
   grounding_verified: true
 
+- id: q018
+  provenance: human
+  voice: technical
+  intent: decision
+  question: "How did you handle data quality and quarantine routing when migrating to Lakeflow, given its native limitations?"
+  expected_answer: "We discovered that Lakeflow's native data quality actions only warn, drop, or fail the pipeline, which breaks our requirement to route bad data to a dedicated quarantine table. To work around this, we built a custom pattern: for each domain, we created a second table that reads the same upstream data but filters for the exact inverse of our quality rules. This guarantees that invalid records are explicitly captured in quarantine instead of being silently dropped. We also had to implement cross-row uniqueness checks manually as a stream-static join, since there was no native equivalent for that specific rule."
+  expected_source_paths:
+    - project: sdd-kafka-databricks
+      path: docs/adr/006_lakeflow_migration.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

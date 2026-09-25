@@ -282,4 +282,15 @@
       path: docs/adr/0022_tier_1_ingestion_scope.md
   grounding_verified: true
 
+- id: q024
+  provenance: human
+  voice: technical
+  intent: decision
+  question: "Beyond just enforcing data types, how do you use the Schema Registry as the actual contract for how data should be processed, and what prevents a careless registration from breaking the pipeline?"
+  expected_answer: "We use the Avro schema's documentation field to declare the CDC strategy, such as the unique key and upsert behavior. When a new subject is registered, a script parses this field to populate a metadata table that drives our dbt macros. This makes the processing strategy data-driven rather than hardcoded in SQL, though we still have some unclosed work to eliminate a few remaining hardcoded domain lists. To prevent careless registrations from breaking the pipeline, we rely on two safeguards: first, the registry enforces BACKWARD compatibility, rejecting any schema change that would break existing consumers before the data ever lands in Snowflake. Second, if someone registers a schema but forgets to fill out the documentation field, the system explicitly skips the metadata update and logs it, rather than silently overwriting the existing strategy with defaults. We specifically rejected using plain JSON without a registry because it offers no enforcement point and no standard place to store this contract metadata."
+  expected_source_paths:
+    - project: sdd-kafka-snowflake-2
+      path: docs/adr/0030_avro_and_schema_registry_as_the_contract.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

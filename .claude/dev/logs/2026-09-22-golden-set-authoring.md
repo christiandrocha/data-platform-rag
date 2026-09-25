@@ -117,6 +117,12 @@ once, with its reason, not by drifting.
   not on transformation", which read literally contradicts the warehouse-compute
   billing ADR-0019 and ADR-0020 rest on. Last ADR in the walk: all 21 now have a
   question.
+- ADR-0030 → q024, 2026-09-25. First decision question on ADR-0030, which until
+  now had only q003 (architecture) and q004 (comparison). One audit finding,
+  fixed by the author: "entirely data-driven" ignored the three hardcoded domain
+  lists the ADR calls "the unclosed half" (lines 69–76). On a coverage note the
+  author also added `BACKWARD` compatibility (lines 50–53) to the safeguards.
+  The angle (the `doc` field as processing contract) avoids q003, q004 and q021.
 
 ## Open drafts — question written, `expected_answer` pending
 

@@ -89,6 +89,10 @@ once, with its reason, not by drifting.
   ADR-006's "not migrated" list was overtaken by ADR-007; its counts disagree
   (20 + 10 migrated at line 24, "31" at lines 84–85); "ADR-06" at line 91 is
   unexplained.
+- ADR-0028 → q019, 2026-09-25. No audit findings. The answer keeps the offset
+  tiebreaker to one partition (line 41). The ADR does not discuss whether
+  `CreateTime` is ordered across partitions, which ADR-0024's watermark lesson
+  would make a fair interviewer probe; no answer should claim either way.
 
 ## Open drafts — question written, `expected_answer` pending
 

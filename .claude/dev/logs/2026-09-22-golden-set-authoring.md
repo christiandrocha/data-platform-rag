@@ -145,15 +145,26 @@ once, with its reason, not by drifting.
   say. Line 36 disparages Lakeflow, which ADR-006 later adopted; no answer should
   lean on it. Longest word run shared with the ADR: 2 in the question, 0 in the
   answer. Closes the q021–q025 batch.
+- Liquid Clustering draft, dropped 2026-09-28. After D2 was assigned the
+  recruiter voice, the author sent a different architecture question on Liquid
+  Clustering versus partitioning. The question was judged fine; the answer's
+  claims (partition explosion, storage efficiency, organisation by query
+  patterns) are general Databricks knowledge absent from both corpora, and two
+  contradict ADR-004 (line 60: cluster_by must be kept in sync by hand; line 14:
+  cluster_by is set per contract, not by query patterns). The author declined to
+  rewrite it and invoked retreat A3.
+- Retreat A3 invoked, 2026-09-28 (ADR-011 amendment). From q026 on,
+  `architecture` questions and their `expected_answer` are LLM-written,
+  `provenance: llm`, and approved by the author per batch. q026–q030 are the
+  first five, all `voice: recruiter`, grounded in the two READMEs: Kafka (q026),
+  dbt (q027), Databricks and Unity Catalog (q028), orchestration (q029), data
+  contracts (q030). No answer has a digit-bearing token. Longest word run shared
+  with the sources: 2 in a question, 6 in an answer. The Databricks README's
+  stale passages (parametrized notebooks, Structured Streaming), superseded by
+  ADR-006/007, were deliberately avoided.
 
 ## Open drafts — question written, `expected_answer` pending
 
-### D2 — architecture, `sdd-kafka-snowflake-2 README.md#Stack`
-
-> What technology is used for data transformation in Snowflake?
-
-Out of walk order (see the deviation above). Typo in the original draft
-("tecchnology") corrected by the author's instruction on 2026-09-22.
-
-An `expected_answer` of "dbt" alone was proposed and left for expansion: a
-one-word ground truth gives RAGAS almost nothing to score against.
+None. D2 (*What technology is used for data transformation in Snowflake?*)
+was dropped on 2026-09-28: q027 covers dbt in the Snowflake project, and D2's
+answer was never written.

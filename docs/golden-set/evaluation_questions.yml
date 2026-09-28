@@ -409,4 +409,19 @@
       path: README.md
   grounding_verified: true
 
+- id: q035
+  provenance: llm
+  voice: technical
+  intent: architecture
+  question: "How do you reconcile the same user coming from two different source systems?"
+  expected_answer: "In the Databricks project, users arrive from a MongoDB source and an MSSQL source, each with its own contract and its own key. Silver combines them with a full outer join on the normalized CPF, which becomes the merge key of the unified users table. A row without a CPF is quarantined before it reaches that table."
+  expected_source_paths:
+    - project: sdd-kafka-databricks
+      path: contracts/users.yml
+    - project: sdd-kafka-databricks
+      path: contracts/users_mongo.yml
+    - project: sdd-kafka-databricks
+      path: contracts/users_mssql.yml
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

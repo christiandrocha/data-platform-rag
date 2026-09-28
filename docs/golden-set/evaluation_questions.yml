@@ -317,4 +317,15 @@
       path: README.md
   grounding_verified: true
 
+- id: q027
+  provenance: llm
+  voice: recruiter
+  intent: architecture
+  question: "Have you worked with dbt?"
+  expected_answer: "Yes, in the Snowflake project. All transformation inside Snowflake is done with dbt, which models the data in Bronze, Silver and Gold layers. Each layer is covered by dbt tests, and the severity of each test is chosen individually rather than left at the default."
+  expected_source_paths:
+    - project: sdd-kafka-snowflake-2
+      path: README.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

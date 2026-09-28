@@ -184,6 +184,16 @@ once, with its reason, not by drifting.
   because line 98 gives no mechanism. Longest word run shared with the sources:
   3 in a question, 6 in an answer (q036). Left 2 technical `architecture`
   questions.
+- q041–q042, 2026-09-28, retreat A3 (`provenance: llm`, technical). Both from
+  SF README#Cost governance: where the trigger design stops saving (q041,
+  line 362) and what drives the bill (q042, lines 364, 378–386, 399). Deviation
+  approved by the author: DB README#Stack, planned as one of the 17 units, got
+  no question. Its `availableNow` / Structured Streaming rows are stale since
+  ADR-006/007 moved to Lakeflow, KRaft has one line of support ("No Zookeeper"),
+  and Asset Bundles are in q029. Figures (60 seconds, under 2%, 1.1188 credits)
+  were put in words, so no grounding quote is needed. Longest word run shared
+  with the source: 2 in a question, 4 in an answer. All 18 `architecture`
+  questions are now written.
 
 ## Open drafts — question written, `expected_answer` pending
 

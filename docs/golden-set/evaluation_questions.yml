@@ -374,4 +374,17 @@
       path: README.md
   grounding_verified: true
 
+- id: q032
+  provenance: llm
+  voice: recruiter
+  intent: architecture
+  question: "Do you have experience setting up CI/CD for data pipelines?"
+  expected_answer: "Yes, with GitHub Actions in both projects. In the Snowflake project, CI checks the dbt project using throwaway credentials, so it needs no Snowflake connection, and it also runs ruff and yamllint. In the Databricks project, CI runs linting, validates the data contracts and validates the Databricks Asset Bundle."
+  expected_source_paths:
+    - project: sdd-kafka-snowflake-2
+      path: README.md
+    - project: sdd-kafka-databricks
+      path: README.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

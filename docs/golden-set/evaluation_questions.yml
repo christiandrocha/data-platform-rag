@@ -398,4 +398,15 @@
       path: README.md
   grounding_verified: true
 
+- id: q034
+  provenance: llm
+  voice: technical
+  intent: architecture
+  question: "What does each layer of the dbt model do in the Snowflake pipeline?"
+  expected_answer: "Bronze holds the raw CDC history: one incremental model per domain, deduplicated by key within each batch, with delete events kept on purpose. Silver holds the current state, and none of its models contains CDC logic; a shared macro reads each domain's strategy (upsert, append or log) from a metadata table. Gold holds the aggregations, each with its own grain."
+  expected_source_paths:
+    - project: sdd-kafka-snowflake-2
+      path: README.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

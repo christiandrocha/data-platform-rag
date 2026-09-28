@@ -387,4 +387,15 @@
       path: README.md
   grounding_verified: true
 
+- id: q033
+  provenance: llm
+  voice: recruiter
+  intent: architecture
+  question: "Have you worked with Snowflake?"
+  expected_answer: "Yes. One of the two projects is a change data capture pipeline into Snowflake. Events are ingested with Snowpipe Streaming and transformed with dbt, and the pipeline is woken by Snowflake Streams and Tasks rather than by polling, so checking for new data costs nothing while the pipeline is idle."
+  expected_source_paths:
+    - project: sdd-kafka-snowflake-2
+      path: README.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

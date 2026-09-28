@@ -9,8 +9,8 @@ import yaml
 REQUIRED_FIELDS = {"id", "provenance", "voice", "intent", "question", "expected_answer",
                    "expected_source_paths"}
 
-# ADR-011 Commitment 1: all questions are human-authored. `llm` exists only for
-# retreat A3, where an LLM proposes architecture questions. The field is
+# ADR-011 Commitment 1: questions are human-authored. `llm` exists for retreat
+# A3, invoked 2026-09-28 and extended by ADR-016 to every remaining intent. The field is
 # mandatory either way — without it the two populations are indistinguishable
 # after the fact, and the retreat silently becomes the thing the commitment
 # exists to prevent.

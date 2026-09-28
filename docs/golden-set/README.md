@@ -50,6 +50,11 @@ because that ADR also pre-approves **retreat A3**, under which an LLM may propos
 
 The point of the field is to make the bias **measurable**, not to hide it.
 
+**Known gap (ADR-016):** from q026 on, questions are LLM-written. The human
+stratum is almost entirely `decision`, and the LLM stratum is everything else,
+so a human/LLM score difference is confounded with intent. Compare strata
+within an intent only, and treat the result as indicative.
+
 ## Voice
 
 Every question declares `voice: recruiter | technical`.

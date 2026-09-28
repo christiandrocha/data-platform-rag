@@ -162,6 +162,17 @@ once, with its reason, not by drifting.
   with the sources: 2 in a question, 6 in an answer. The Databricks README's
   stale passages (parametrized notebooks, Structured Streaming), superseded by
   ADR-006/007, were deliberately avoided.
+- q031–q035, 2026-09-28, retreat A3 (`provenance: llm`). Three recruiter
+  questions complete the 8 recruiter `architecture` slots: Prometheus and
+  Grafana (q031), CI/CD in both projects (q032), Snowflake (q033). Two technical
+  ones follow INTERVIEWER_THEMES angles: the dbt layers (q034, SF
+  README#Layered modeling) and one user from two sources (q035, the three
+  `users` contracts). Self-audit before showing the author: q033 first said an
+  idle *warehouse* costs nothing, but the source says the *gate* does, so it was
+  corrected; q032 was reworded to cut a 7-word run from the README's CI/CD
+  section. Longest word run shared with the sources: 2 in a question, 6 in an
+  answer (q033). No digit-bearing token. Left 7 technical `architecture`
+  questions.
 
 ## Open drafts — question written, `expected_answer` pending
 

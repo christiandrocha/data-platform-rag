@@ -468,4 +468,15 @@
       path: README.md
   grounding_verified: true
 
+- id: q040
+  provenance: llm
+  voice: technical
+  intent: architecture
+  question: "Why is a small synthetic dataset enough to validate the Databricks pipeline design?"
+  expected_answer: "Because the point is not production volume. The dataset is deliberately an architectural microcosm, a simulated food-delivery platform with several source systems, used to validate what has to hold when real volume arrives: that the MERGE is idempotent, that data contracts govern every table, and that Liquid Clustering stays aligned with the merge key."
+  expected_source_paths:
+    - project: sdd-kafka-databricks
+      path: README.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

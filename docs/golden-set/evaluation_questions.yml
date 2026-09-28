@@ -363,4 +363,15 @@
       path: README.md
   grounding_verified: true
 
+- id: q031
+  provenance: llm
+  voice: recruiter
+  intent: architecture
+  question: "Have you used Prometheus and Grafana?"
+  expected_answer: "Yes, in the Snowflake project, where Prometheus and Grafana provide the observability layer. Prometheus collects the Kafka broker metrics, and the Dagster sensors query it first: if Kafka shows no new traffic, the sensor skips without connecting to Snowflake."
+  expected_source_paths:
+    - project: sdd-kafka-snowflake-2
+      path: README.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

@@ -328,4 +328,15 @@
       path: README.md
   grounding_verified: true
 
+- id: q028
+  provenance: llm
+  voice: recruiter
+  intent: architecture
+  question: "Do you have hands-on experience with Databricks and Unity Catalog?"
+  expected_answer: "Yes. The Databricks project lands change data from PostgreSQL, via Kafka, in Databricks using the Medallion Architecture. Unity Catalog governs the tables, with one catalog for development and another for production, and separate schemas for the Bronze, Silver, Gold and quarantine layers."
+  expected_source_paths:
+    - project: sdd-kafka-databricks
+      path: README.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

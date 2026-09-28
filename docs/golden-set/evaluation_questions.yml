@@ -490,4 +490,15 @@
       path: README.md
   grounding_verified: true
 
+- id: q042
+  provenance: llm
+  voice: technical
+  intent: architecture
+  question: "What actually drives the Snowflake bill in your pipeline?"
+  expected_answer: "Not query execution. On a measured day, execution time was a small fraction of what was billed; almost all of the bill was the minimum charge on each warehouse resume plus the idle time before auto-suspend. At rest the pipeline costs nothing: over a weekend with the stack running and no work, the warehouse billed zero. A monthly spending cap on the warehouse notifies before it suspends."
+  expected_source_paths:
+    - project: sdd-kafka-snowflake-2
+      path: README.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

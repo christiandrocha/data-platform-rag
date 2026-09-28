@@ -446,4 +446,15 @@
       path: README.md
   grounding_verified: true
 
+- id: q038
+  provenance: llm
+  voice: technical
+  intent: architecture
+  question: "What did the first version of the Snowflake pipeline get wrong?"
+  expected_answer: "The second iteration found that the expensive parts of the first were assumptions nobody had checked. The first version used the classic file-based Snowpipe, polled Bronze on a schedule that kept the warehouse awake, relied on a global watermark that could strand a low-volume domain, kept Dagster state in SQLite, and documented a credit monitor that did not exist. Its test severities were whatever dbt defaulted to, and its ADR files were lost in the move."
+  expected_source_paths:
+    - project: sdd-kafka-snowflake-2
+      path: README.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

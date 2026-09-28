@@ -457,4 +457,15 @@
       path: README.md
   grounding_verified: true
 
+- id: q039
+  provenance: llm
+  voice: technical
+  intent: architecture
+  question: "Where are the data contracts enforced in the Databricks project?"
+  expected_answer: "Each table's YAML contract is used at several points. The project's stack lists the loader, the Spark schema and pydantic as its consumers, and the contract's quality rules decide which rows are sent to quarantine. Before any code runs, a contract test checks that every file is valid YAML, that each quality rule points at a real schema field, and that the clustering columns include the merge key. CI runs these contract checks alongside the bundle validation."
+  expected_source_paths:
+    - project: sdd-kafka-databricks
+      path: README.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

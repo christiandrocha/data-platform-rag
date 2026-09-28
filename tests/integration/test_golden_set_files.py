@@ -43,11 +43,14 @@ def test_real_golden_set_validates_clean():
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_coverage_warns_without_failing_while_the_set_is_incomplete():
+def test_coverage_exits_zero_on_the_real_set():
+    # The warn-below-50 behaviour is unit-tested in test_golden_set_coverage.py.
+    # Here the real file decides which branch runs: once every inventory ADR is
+    # covered (q023), there is no warning left to print, so only assert the
+    # exit code and a consistent summary line.
     result = run("golden_set_coverage.py")
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "uncovered. Next:" in result.stdout
-    assert "warning only" in result.stdout
+    assert "inventory ADRs covered" in result.stdout
 
 
 def test_every_project_is_a_contract_member(questions):

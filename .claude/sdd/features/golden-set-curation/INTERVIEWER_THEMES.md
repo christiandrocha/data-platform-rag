@@ -10,6 +10,10 @@
 - **Audience.** A technical interviewer (hiring manager or senior engineer)
   probing the two projects: why, trade-off, failure, what would change. All 45
   questions carry `voice: technical` (see DESIGN T4).
+  **Revised 2026-09-28:** the angles below serve the technical questions only.
+  The 12 `voice: recruiter` questions do not use them: a recruiter asks with a
+  job-posting keyword and expects confirmation and where it was used (README
+  *Voice*). DESIGN T4 has the split.
 - **Market input.** 2026 interview guides for data engineers on Kafka/CDC,
   Snowflake/dbt, Databricks and Dagster (sources at the end) set which themes
   interviewers probe: CDC and deletes, schema evolution and contracts,

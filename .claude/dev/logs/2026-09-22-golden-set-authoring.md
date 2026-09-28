@@ -123,6 +123,19 @@ once, with its reason, not by drifting.
   lists the ADR calls "the unclosed half" (lines 69–76). On a coverage note the
   author also added `BACKWARD` compatibility (lines 50–53) to the safeguards.
   The angle (the `doc` field as processing contract) avoids q003, q004 and q021.
+- ADR-008 → q025 draft, dropped 2026-09-28. Angle: why `REPLICA IDENTITY FULL`
+  on all 20 tables and `apply_as_deletes`, over the rejected alternatives. Five
+  audit rounds fixed claims (the path was never observed, lines 23–25; the
+  users path filtered deletes before dedup, lines 18–20), but the question
+  failed ADR-011 auditor check (a): it names mechanisms only a reader of the ADR
+  knows, and its angle overlaps q020. The auditor missed (a) in all five rounds;
+  the author raised it. The draft followed lines 55–57 (delete-rewrite rows are
+  quarantined before the merge) over lines 14–17 (the row is NULLed by an
+  `UPDATE`): ADR-008 contradicts itself here, and no answer should lean on
+  either reading alone. On the same day the author chose smaller questions and
+  12 `voice: recruiter` questions among the remaining 25 (DESIGN T4, revised
+  2026-09-28). q025 will be a new decision question phrased by someone who has
+  not read the project.
 
 ## Open drafts — question written, `expected_answer` pending
 

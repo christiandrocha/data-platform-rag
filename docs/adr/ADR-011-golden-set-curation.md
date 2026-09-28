@@ -378,3 +378,15 @@ the evidence needed to decide it is already available.
 - [ ] `scripts/verify_adversarials.py` exits non-zero on a match and is wired
       as a precondition of `make eval` and `make eval-ci`.
 - [ ] Evaluation runs record the git SHA of `evaluation_questions.yml`.
+
+## Amendment (2026-09-28) — Retreat A3 invoked
+
+After 25 human-authored questions (q001–q025, all committed), the author invoked
+the pre-approved retreat A3: authoring at this rigour proved unworkable in
+reasonable time. From q026 on, `architecture` questions, including their
+`expected_answer`, are written by the LLM and carry `provenance: llm`; the author
+approves each batch. `decision` is complete (22/22, all human). `comparison` and
+`out-of-scope` stay human-authored under Commitment 1. The ordering constraint
+holds: every human question was committed before the first LLM proposal. RAGAS
+is reported per provenance, so the human/LLM Context Recall delta is measured,
+not assumed.

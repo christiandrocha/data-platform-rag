@@ -352,4 +352,15 @@
       path: README.md
   grounding_verified: true
 
+- id: q030
+  provenance: llm
+  voice: recruiter
+  intent: architecture
+  question: "Have you implemented data contracts?"
+  expected_answer: "Yes, in the Databricks project. Each table has a YAML data contract that is the single source of truth for its schema, its quality rules and its Delta table properties. The CI pipeline also validates the contracts."
+  expected_source_paths:
+    - project: sdd-kafka-databricks
+      path: README.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

@@ -173,6 +173,17 @@ once, with its reason, not by drifting.
   section. Longest word run shared with the sources: 2 in a question, 6 in an
   answer (q033). No digit-bearing token. Left 7 technical `architecture`
   questions.
+- q036–q040, 2026-09-28, retreat A3 (`provenance: llm`, all technical). Angles
+  from INTERVIEWER_THEMES: SF The Problem (q036), SF Known gaps (q037), SF What
+  Evolved (q038), DB Data Contracts (q039), DB TL;DR dataset framing (q040).
+  Numbers (60 seconds, nine runs, 129k) left out so no grounding quote is
+  needed. Deliberately not used: DB README *Next Steps*, stale (it still lists
+  the DLT migration ADR-006 already made), and the README's "scales
+  horizontally", which nothing in the corpus demonstrates. q039 says only that
+  the stack *lists* loader, Spark schema and pydantic as contract consumers,
+  because line 98 gives no mechanism. Longest word run shared with the sources:
+  3 in a question, 6 in an answer (q036). Left 2 technical `architecture`
+  questions.
 
 ## Open drafts — question written, `expected_answer` pending
 

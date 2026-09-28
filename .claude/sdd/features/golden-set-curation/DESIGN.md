@@ -374,6 +374,21 @@ input, not questions. Commitment 1 of ADR-011 is unchanged.
   in the schema but has no questions, so recruiter-style performance is
   **unmeasured**, and that is recorded as a known gap in
   `docs/golden-set/README.md`.
+- **Revised 2026-09-28: 12 of the remaining 25 are `voice: recruiter`.**
+  The bullet above is superseded, not deleted. After 24 technical questions the
+  author judged that a recruiter will not read the projects before asking,
+  so the set left the most likely user unmeasured. Split: 8 architecture,
+  2 comparison, 2 out-of-scope. The other 13, and the 22nd decision question,
+  stay `technical`. The 22/18/5/5 intent distribution is unchanged, so the
+  validator does not change. The set ends at 38 technical / 12 recruiter,
+  reported per voice.
+- **Revised 2026-09-28: every question must pass auditor check (a) first.**
+  ADR-011's *"would someone who had not read this source phrase the question
+  this way?"* is applied before any claim check. A draft of q025 on ADR-008
+  named `REPLICA IDENTITY FULL`, the 20-table count and `apply_as_deletes`, so it
+  failed (a), and its angle overlapped q020. It was dropped. q025 is a new
+  decision question phrased by someone who has not read the project.
+  Questions ask one thing each, so the answer stays short.
 - **The 17 architecture units are chosen by interviewer relevance**, not by
   taking the first 17 of `make golden-set-next-architecture`'s 61-unit walk,
   which would include units like `#License` and `#Author`. The seeded walk

@@ -479,4 +479,15 @@
       path: README.md
   grounding_verified: true
 
+- id: q041
+  provenance: llm
+  voice: technical
+  intent: architecture
+  question: "Does your trigger design still save money when data arrives continuously?"
+  expected_answer: "No, and the project says so. Checking whether a stream has data is free, which is why an idle pipeline costs nothing. But when a gate task fires it runs on the warehouse, and every resume is billed a minimum period. Under continuous traffic the tasks would fire so often that the warehouse would stay on permanently, the very behaviour the redesign set out to remove. The design fits bursty workloads like this one, not true streaming."
+  expected_source_paths:
+    - project: sdd-kafka-snowflake-2
+      path: README.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

@@ -424,4 +424,15 @@
       path: contracts/users_mssql.yml
   grounding_verified: true
 
+- id: q036
+  provenance: llm
+  voice: technical
+  intent: architecture
+  question: "What are the hardest failures to catch in a CDC pipeline?"
+  expected_answer: "In the Snowflake project, two failure modes did not look like failures. The first was cost: finding out whether new data had arrived meant waking the warehouse, and the original polling kept it from ever going idle. The second was silence: wrong but plausible data flowing through to the reports, such as a column inferred one type narrower after a schema drift, or a small domain lagging behind a watermark shared with busier ones until it quietly stopped being processed."
+  expected_source_paths:
+    - project: sdd-kafka-snowflake-2
+      path: README.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

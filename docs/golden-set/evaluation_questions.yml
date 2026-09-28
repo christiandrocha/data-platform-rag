@@ -435,4 +435,15 @@
       path: README.md
   grounding_verified: true
 
+- id: q037
+  provenance: llm
+  voice: technical
+  intent: architecture
+  question: "What in the Snowflake project is still untested or fragile?"
+  expected_answer: "The deploy workflow cannot really deploy: it runs on the ephemeral GitHub runner, the project has no deployment target, and its trigger is now manual only. Nobody is notified when a workflow fails. The incremental Gold merge still has an untested edge for events that arrive out of order. And the Dagster asset graph is fixed when the container starts, so a new dbt model is silently ignored until the daemon is restarted."
+  expected_source_paths:
+    - project: sdd-kafka-snowflake-2
+      path: README.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

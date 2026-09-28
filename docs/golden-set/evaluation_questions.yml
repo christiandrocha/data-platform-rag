@@ -293,4 +293,15 @@
       path: docs/adr/0030_avro_and_schema_registry_as_the_contract.md
   grounding_verified: true
 
+- id: q025
+  provenance: human
+  voice: technical
+  intent: decision
+  question: "What were the main downsides or trade-offs of choosing Databricks over Snowflake for this project?"
+  expected_answer: "Choosing this platform introduces two specific trade-offs. It mandates the use of a dedicated cloud workspace. Additionally, local development cannot be fully offline, since developers require an active internet connection to execute their notebooks."
+  expected_source_paths:
+    - project: sdd-kafka-databricks
+      path: docs/adr/001_databricks_vs_snowflake.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

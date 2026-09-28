@@ -21,5 +21,6 @@ Reversals are documented in-place; superseded ADRs stay in the record.
 | ADR-013 | Corpus provenance in Postgres, and replace-by-scope indexing | Accepted | 2026-09-18 |
 | ADR-014 | Source recall at k as the retrieval metric, before RAGAS exists | Accepted | 2026-09-18 |
 | ADR-015 | OR-joined lexemes for the sparse side of hybrid retrieval | Rejected | 2026-09-21 |
+| ADR-016 | Extend retreat A3 to comparison and out-of-scope questions | Accepted | 2026-09-28 |
 
 **Legend**: Accepted (implemented as decided) · Planned (decision pending BUILD phase) · Rejected (measured and not adopted; kept as record) · Superseded · Resolved.

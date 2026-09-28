@@ -390,3 +390,8 @@ approves each batch. `decision` is complete (22/22, all human). `comparison` and
 holds: every human question was committed before the first LLM proposal. RAGAS
 is reported per provenance, so the human/LLM Context Recall delta is measured,
 not assumed.
+
+*Amended by [ADR-016](ADR-016-extend-retreat-a3-to-comparison-and-out-of-scope.md)
+(2026-09-28): A3 now also covers the four `comparison` and four `out-of-scope`
+questions that remained, so the sentence above about those intents staying
+human no longer holds.*

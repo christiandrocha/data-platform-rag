@@ -136,6 +136,15 @@ once, with its reason, not by drifting.
   12 `voice: recruiter` questions among the remaining 25 (DESIGN T4, revised
   2026-09-28). q025 will be a new decision question phrased by someone who has
   not read the project.
+- ADR-001 → q025, 2026-09-28. Second question on ADR-001, after q012 (why
+  Databricks, and what features drove the choice). This one asks only what was
+  given up, which line 42 answers. Auditor check (a) passes: a reader who has not
+  seen the project would ask this. Two audit findings, fixed by the author:
+  "primary drawback" ranked two items line 42 lists as equals, and
+  "Consequently" made the second a result of the first, which line 42 does not
+  say. Line 36 disparages Lakeflow, which ADR-006 later adopted; no answer should
+  lean on it. Longest word run shared with the ADR: 2 in the question, 0 in the
+  answer. Closes the q021–q025 batch.
 
 ## Open drafts — question written, `expected_answer` pending
 

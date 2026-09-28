@@ -339,4 +339,17 @@
       path: README.md
   grounding_verified: true
 
+- id: q029
+  provenance: llm
+  voice: recruiter
+  intent: architecture
+  question: "What orchestration tools have you used?"
+  expected_answer: "Dagster orchestrates the Snowflake project. The Databricks project uses Databricks Asset Bundles instead, which define and deploy the jobs from Git to separate deployment targets."
+  expected_source_paths:
+    - project: sdd-kafka-snowflake-2
+      path: README.md
+    - project: sdd-kafka-databricks
+      path: README.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

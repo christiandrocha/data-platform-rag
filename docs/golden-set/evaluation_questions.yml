@@ -555,4 +555,17 @@
       path: docs/adr/0018_dedicated_postgres_for_dagster_storage.md
   grounding_verified: true
 
+- id: q047
+  provenance: llm
+  voice: technical
+  intent: out-of-scope
+  question: "Why not use Airflow to orchestrate these pipelines?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "Airflow"
+    - "airflow"
+    - "Apache Airflow"
+  grep_verified: 2026-09-29
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

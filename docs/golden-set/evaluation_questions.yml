@@ -527,4 +527,17 @@
       path: docs/adr/0026_gold_aggregation_categories.md
   grounding_verified: true
 
+- id: q045
+  provenance: llm
+  voice: technical
+  intent: comparison
+  question: "What did the Databricks naming cleanup and the Snowflake stream-based trigger each deliberately not do, and why?"
+  expected_answer: "In Databricks, the rename cutover ran only on the dev workspace; production was not cut over because Databricks could not yet reach Kafka there. The leftover objects under old names were not dropped by hand either: they are Lakeflow-internal, and deleting them manually risks corrupting pipeline state, so the clean path is removing the old pipeline resource. In Snowflake, the new trigger moved only the check for new data into Snowflake, not the execution. Tasks cannot run an external command, so Dagster still runs dbt; what it stopped doing is polling. The trade-off is ten Streams, ten Tasks and a stored procedure that must be kept in step with the domain list."
+  expected_source_paths:
+    - project: sdd-kafka-databricks
+      path: docs/adr/009_naming_standardization.md
+    - project: sdd-kafka-snowflake-2
+      path: docs/adr/0019_streams_and_triggered_tasks_as_the_gate.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

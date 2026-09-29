@@ -79,3 +79,30 @@ and the Section 7 publication gates are defined against. Coverage warnings stop.
 - **Rebalance, writing fewer comparison and out-of-scope and more of the
   complete intents.** Rejected. It moves the ruler mid-curation (ADR-011, "a
   moving ruler") to save eight questions.
+
+## Amendment — 2026-09-29: the answers of q001, q002 and q004
+
+At 50 questions the validator switches from warning to failing on incomplete
+grounding, which it was designed to do. Four seed questions from 2026-09-14
+predate the grounding rule. q003 only lacked its attestation: its answer was
+checked against ADR-0030 (lines 18–19, 24, 50) and the Snowflake README (line
+95), and the author approved `grounding_verified: true`. The other three answers
+each claim something their cited source does not support, a finding recorded on
+2026-09-22. q001 invents a latency target. q002 gives ADR-007 a lineage argument
+that belongs to ADR-006. q004 says the Databricks project uses a different
+schema-evolution mechanism, when its README shows the same Schema Registry with
+Avro `BACKWARD`.
+
+The author chose to have the LLM rewrite those three `expected_answer` fields,
+approved one by one. The questions are unchanged and stay `provenance: human`,
+because the field records who wrote the question.
+
+**Cost:** q001, q002 and q004 become hybrids, with a human question and an LLM
+answer. Context Recall is scored against the answer, so these three belong to
+neither stratum cleanly. A per-provenance report must list them apart, or
+exclude them, and never pool them into `human`. The human stratum loses 3 of
+its 25 questions for that comparison, which deepens the confounding recorded
+above.
+
+**Alternative rejected:** the author rewriting the three answers keeps the
+provenance clean. It was declined for the same reason as the rest of this ADR.

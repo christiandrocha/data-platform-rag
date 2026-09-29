@@ -501,4 +501,17 @@
       path: README.md
   grounding_verified: true
 
+- id: q043
+  provenance: llm
+  voice: technical
+  intent: comparison
+  question: "How do the two projects guard their table-layout rules: Databricks' clustering-key alignment and Snowflake's insert-only Bronze?"
+  expected_answer: "Differently. In Databricks, the rule that every contract's cluster_by must include its merge_key is checked automatically: test_contracts.py runs before any build and fails on a misaligned contract, so it is caught in CI before deployment. In Snowflake, the rule that Bronze only receives inserts is a documented convention with no automatic enforcement, and nothing stops a manual UPDATE. The ADR suggests revoking UPDATE and DELETE on Bronze from the CDC role to make it real, but that has not been applied."
+  expected_source_paths:
+    - project: sdd-kafka-databricks
+      path: docs/adr/004_liquid_clustering.md
+    - project: sdd-kafka-snowflake-2
+      path: docs/adr/0025_bronze_is_append_only.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

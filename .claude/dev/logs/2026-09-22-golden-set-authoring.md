@@ -219,6 +219,26 @@ once, with its reason, not by drifting.
   of those"; information only, since the contamination check reads questions).
   `comparison` is complete (5/5). Left: 3 `out-of-scope` (Iceberg, trivially
   off-domain, prompt-extraction; 2 of them recruiter).
+- q048–q050, 2026-09-29, ADR-016 (`provenance: llm`), the last three
+  `out-of-scope`. q048 (recruiter): "Have you worked with Apache Iceberg?". The
+  corpus is silent on Iceberg, which does not show the author never used it, so
+  the fallback is the right answer and not an inference from Delta Lake.
+  Probes `Iceberg`, `iceberg`; `UniForm`, "table format" and `Hudi` are also 0.
+  q049 (recruiter): React frontends, the trivially off-domain band. It was
+  chosen over mobile because the Databricks dataset simulates a food-delivery
+  app. Probes `React`, `frontend`, `Frontend`, `front-end`. Lowercase `react`
+  was left out, because the gate matches substrings ("reaction"). q050
+  (technical): prompt extraction. The probes are phrases, "system prompt" and
+  "previous instructions", because `prompt`, `ignore` and `instruction` already
+  occur with other meanings. The question avoids "Claude", which both READMEs
+  use for the build methodology, the residual risk the author accepted. For
+  every one, the author read the probes and the grep (ADR-016 rule 3). Layer 2
+  is deferred with q047, and all four must run before merge.
+  **At 50 the validator went strict**, as designed, and failed on the seeds
+  q001–q004. q003 got its attestation. q001, q002 and q004 got LLM-rewritten
+  answers under the ADR-016 amendment and are now hybrids, a human question
+  with an LLM answer, to be reported apart. The set is complete: 50/50, 25
+  human and 25 llm, 38 technical and 12 recruiter, 21/21 ADRs covered.
 
 ## Open drafts — question written, `expected_answer` pending
 

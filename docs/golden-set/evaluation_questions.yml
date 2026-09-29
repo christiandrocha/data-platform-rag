@@ -568,4 +568,16 @@
     - "Apache Airflow"
   grep_verified: 2026-09-29
 
+- id: q048
+  provenance: llm
+  voice: recruiter
+  intent: out-of-scope
+  question: "Have you worked with Apache Iceberg?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "Iceberg"
+    - "iceberg"
+  grep_verified: 2026-09-29
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

@@ -194,6 +194,31 @@ once, with its reason, not by drifting.
   were put in words, so no grounding quote is needed. Longest word run shared
   with the source: 2 in a question, 4 in an answer. All 18 `architecture`
   questions are now written.
+- q043–q047, 2026-09-29, ADR-016 (`provenance: llm`). The four `comparison`
+  pairs come from the seeded walk, in order. q043 (technical): how each project
+  guards a table-layout rule, DB ADR-004 enforced by CI against SF ADR-0025,
+  a convention only. q044 (recruiter): a design call each project revisited,
+  DB ADR-002 and SF ADR-0026. The topics do not meet, so the thread is the
+  revision itself. q045 (technical): what DB ADR-009 and SF ADR-0019 each
+  deliberately did not do. The Kafka-boundary angle was dropped because q010
+  and q011 already answer it. q046 (recruiter): how showcasing the work shaped
+  choices, DB ADR-001 and SF ADR-0018. The orchestration angle was dropped
+  because q012, q013 and q029 cover it. q046 cites DB ADR-006 as a third
+  source, because ADR-001's "Structured Streaming over Lakeflow" was later
+  reversed. **Corpus inconsistency:** ADR-001 still reads "Accepted" with no
+  pointer to that reversal. The fix belongs in sdd-kafka-databricks.
+  q047 (technical, `out-of-scope`): why not Airflow. Probes `Airflow`,
+  `airflow`, `Apache Airflow`: 0 in-corpus matches, and `astronomer` and
+  `MWAA` also 0. `DAG` appears 7 times, all Dagster or Lakeflow graphs, so it
+  is not a probe. The author read the probes and the grep (ADR-016 rule 3).
+  **Layer 2 deferred** with the author's approval: `make audit-adversarials`
+  had crashed since 2026-09-17 (fixed in the batch, with a dry-run test), and
+  the local venv has no `anthropic` package and no API key. It must run on
+  q047 before the batch PR merges. Longest word run shared with the sources:
+  2 in a question, 8 in an answer (q044, "reading the actual SQL corrected two
+  of those"; information only, since the contamination check reads questions).
+  `comparison` is complete (5/5). Left: 3 `out-of-scope` (Iceberg, trivially
+  off-domain, prompt-extraction; 2 of them recruiter).
 
 ## Open drafts — question written, `expected_answer` pending
 

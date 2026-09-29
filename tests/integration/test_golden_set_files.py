@@ -71,3 +71,13 @@ def test_contamination_check_passes_against_the_real_snapshot():
         pytest.skip("no corpus snapshot; run make fetch-corpus")
     result = run("check_contamination.py")
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("mode", [["--adversarial"], []], ids=["adversarial", "in-scope"])
+def test_audit_builds_its_prompts_against_the_real_snapshot(mode):
+    # --dry-run builds every prompt and calls nothing. The audit had no test,
+    # and a changed corpus.py signature broke it silently for twelve days.
+    if not any(SNAPSHOT_PARENT.glob(SNAPSHOT_GLOB)):
+        pytest.skip("no corpus snapshot; run make fetch-corpus")
+    result = run("audit_questions.py", *mode, "--dry-run")
+    assert result.returncode == 0, result.stdout + result.stderr

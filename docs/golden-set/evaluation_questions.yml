@@ -540,4 +540,19 @@
       path: docs/adr/0019_streams_and_triggered_tasks_as_the_gate.md
   grounding_verified: true
 
+- id: q046
+  provenance: llm
+  voice: recruiter
+  intent: comparison
+  question: "Did the fact that these projects are meant to showcase your work change any technical choices?"
+  expected_answer: "Yes, in both. In Databricks, the managed declarative pipeline framework, Lakeflow, was first passed over for plain Structured Streaming, because explicit code gave more control for demonstrating engineering decisions; the project later migrated Bronze and Silver to Lakeflow anyway. In Snowflake, keeping Dagster's state in SQLite with write-ahead logging would probably have held, but it was rejected because the project is meant as a client reference implementation, and 'probably holds' is not something you can demonstrate. Dagster got its own PostgreSQL instead."
+  expected_source_paths:
+    - project: sdd-kafka-databricks
+      path: docs/adr/001_databricks_vs_snowflake.md
+    - project: sdd-kafka-databricks
+      path: docs/adr/006_lakeflow_migration.md
+    - project: sdd-kafka-snowflake-2
+      path: docs/adr/0018_dedicated_postgres_for_dagster_storage.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

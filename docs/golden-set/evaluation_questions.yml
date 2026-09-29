@@ -514,4 +514,17 @@
       path: docs/adr/0025_bronze_is_append_only.md
   grounding_verified: true
 
+- id: q044
+  provenance: llm
+  voice: recruiter
+  intent: comparison
+  question: "Can you give an example from each project of an earlier design call you had to revisit, and what made you change it?"
+  expected_answer: "In Databricks, an earlier idea was to drop the Debezium unwrap step and keep the raw change envelope in Bronze for replay. That idea belonged to a two-way design that was later abandoned. In the final one-way flow, PostgreSQL is the authoritative source and can be reloaded, so unwrapping in the connector was kept, at the cost of losing the before-image of each row. In Snowflake, the Gold models were first sorted by name to decide which could become incremental. Reading the actual SQL corrected two of those calls; for example, user behaviour turned out to be cumulative per user, not a time window. No model was made incremental yet; the categorization is the basis for when volume demands it."
+  expected_source_paths:
+    - project: sdd-kafka-databricks
+      path: docs/adr/002_smt_and_bronze.md
+    - project: sdd-kafka-snowflake-2
+      path: docs/adr/0026_gold_aggregation_categories.md
+  grounding_verified: true
+
 # TODO(BUILD): expand to 50 questions following README.md distribution

@@ -101,7 +101,7 @@ def corpus_titles(corpus_dir: Path) -> str:
         repo = corpus_dir / name
         if not repo.is_dir():
             continue
-        for path in sorted(in_corpus_files(repo)):
+        for path in sorted(in_corpus_files(repo, name)):
             if path.suffix != ".md":
                 continue
             try:

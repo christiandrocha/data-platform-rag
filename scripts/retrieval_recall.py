@@ -179,8 +179,28 @@ def top3_paths(results: list[dict]) -> set[tuple[str, str]]:
     }
 
 
+def ranking_key(ranking: list[dict]) -> list[tuple]:
+    """What "identical ranking" compares: position, project, path and anchor."""
+    return [(r["rank"], r["project"], r["path"], r["anchor"]) for r in ranking]
+
+
+def identical_rankings(baseline: dict, results: list[dict]) -> dict:
+    """Of the baseline questions with no sparse rows, how many rank identically now.
+
+    ADR-018's A4. Removing the sparse side cannot change a question it never
+    ranked anything for, so any difference there means the query changed more
+    than the sparse side.
+    """
+    now = {r["id"]: r["ranking"] for r in results}
+    eligible = [r for r in baseline["results"] if not has_sparse_rows(r["ranking"])]
+    differ = [
+        r["id"] for r in eligible if ranking_key(r["ranking"]) != ranking_key(now.get(r["id"], []))
+    ]
+    return {"identical": len(eligible) - len(differ), "of": len(eligible), "differ": differ}
+
+
 def baseline_deltas(baseline: dict, results: list[dict], summary: dict) -> dict:
-    """The four inputs of ADR-017's decision rule, before and after. No verdict.
+    """The decision-rule inputs of ADR-017 and ADR-018, before and after. No verdict.
 
     Kept after ADR-017's rejection: any change to the sparse side is judged on
     the same four inputs, and the comparability check guards every one of them.
@@ -198,6 +218,7 @@ def baseline_deltas(baseline: dict, results: list[dict], summary: dict) -> dict:
             summary["questions_with_sparse_rows"],
         ),
         "questions": summary["questions"],
+        "identical_rankings": identical_rankings(baseline, results),
     }
 
 
@@ -284,7 +305,8 @@ def main() -> int:
 
     if baseline is not None:
         d = baseline_deltas(baseline, results, summary)
-        print(f"\nAgainst {args.baseline} (ADR-017 decision-rule inputs, no verdict):")
+        summary["identical_rankings"] = d["identical_rankings"]
+        print(f"\nAgainst {args.baseline} (decision-rule inputs, no verdict):")
         print(f"  A1  k=3 found:   {d['k3'][0]} -> {d['k3'][1]} /{d['declared']}  "
               f"({d['k3'][1] - d['k3'][0]:+d})")
         print(f"  A2  top-3 paths lost: {len(d['lost_top3'])}")
@@ -292,8 +314,13 @@ def main() -> int:
             print(f"        {qid}  {path}")
         print(f"  A3  k=10 found:  {d['k10'][0]} -> {d['k10'][1]} /{d['declared']}")
         print(f"      k=20 found:  {d['k20'][0]} -> {d['k20'][1]} /{d['declared']}")
-        print(f"  A4  questions with sparse rows: {d['sparse_rows'][0]} -> "
-              f"{d['sparse_rows'][1]} /{d['questions']}")
+        print(f"      questions with sparse rows: {d['sparse_rows'][0]} -> "
+              f"{d['sparse_rows'][1]} /{d['questions']}  (ADR-017 A4)")
+        same = d["identical_rankings"]
+        print(f"      sparse-empty questions ranked identically: "
+              f"{same['identical']}/{same['of']}  (ADR-018 A4)")
+        for qid in same["differ"]:
+            print(f"        differs: {qid}")
 
     if args.no_write:
         return 0

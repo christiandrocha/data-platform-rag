@@ -1,16 +1,17 @@
-"""Integration tests for hybrid retrieval against real Postgres.
+"""Integration tests for dense-only retrieval (ADR-018) against real Postgres.
 
-Vectors are chosen by hand so the RRF arithmetic can be computed on paper and
-asserted exactly, rather than eyeballed. No embedding model is loaded: `search`
-takes a vector, which is precisely why it was split from `retrieve`.
+Vectors are chosen by hand so the ranking and its scores can be computed on paper
+and asserted exactly, rather than eyeballed. No embedding model is loaded:
+`search` takes a vector, which is precisely why it was split from `retrieve`.
 
 Geometry of the fixture, with the query vector = e0:
 
-    A  e0                    cosine distance 0.0   text: no match
-    C  0.6*e0 + 0.8*e1       cosine distance 0.4   text: no match
-    B  e1                    cosine distance 1.0   text: MATCHES
+    A  e0                    cosine distance 0.0
+    C  0.6*e0 + 0.8*e1       cosine distance 0.4
+    B  e1                    cosine distance 1.0   text: "debezium snowflake ..."
 
-so the dense ranking is A, C, B and the sparse ranking is B alone.
+so the ranking is A, C, B. Under ADR-003's fusion, B ranked first on the sparse
+vote for the text "debezium snowflake". It now ranks by its distance alone.
 """
 
 from __future__ import annotations
@@ -25,7 +26,6 @@ from data_platform_rag.retrieval.hybrid_search import RRF_K, search
 
 DIM = 384
 PROJECT = "sdd-kafka-snowflake-2"
-QUERY_TEXT = "debezium snowflake"
 
 
 def unit(*components: tuple[int, float]) -> list[float]:
@@ -84,11 +84,10 @@ def seed(conn, entries=FIXTURE, file_of=None) -> None:
     write_project(conn, snapshot, chunks, embeddings)
 
 
-def run(conn, *, top_k=20, collections=None, text=QUERY_TEXT):
+def run(conn, *, top_k=20, collections=None, vector=QUERY_VECTOR):
     return search(
         conn,
-        query_text=text,
-        query_vector=QUERY_VECTOR,
+        query_vector=vector,
         collections=collections or ["decisions", "architecture"],
         top_k=top_k,
     )
@@ -98,60 +97,42 @@ def paths(chunks) -> list[str]:
     return [c.metadata.source_path for c in chunks]
 
 
-def test_ranking_matches_rrf_computed_by_hand(conn) -> None:
+def test_ranking_is_cosine_distance_alone(conn) -> None:
+    """B contains the old query text word for word, and still ranks by its distance."""
     seed(conn)
     results = run(conn)
 
-    # dense: A=1, C=2, B=3.  sparse: B=1.
-    #   B = 1/(60+3) + 1/(60+1) = 0.032266   <- wins despite the worst distance
-    #   A = 1/(60+1)            = 0.016393
-    #   C = 1/(60+2)            = 0.016129
-    assert paths(results) == ["docs/adr/B.md", "docs/adr/A.md", "docs/adr/C.md"]
-
-    by_path = {c.metadata.source_path: c for c in results}
-    assert by_path["docs/adr/B.md"].rrf_score == pytest.approx(
-        1 / (RRF_K + 3) + 1 / (RRF_K + 1), abs=1e-9
-    )
-    assert by_path["docs/adr/A.md"].rrf_score == pytest.approx(1 / (RRF_K + 1), abs=1e-9)
-    assert by_path["docs/adr/C.md"].rrf_score == pytest.approx(1 / (RRF_K + 2), abs=1e-9)
+    assert paths(results) == ["docs/adr/A.md", "docs/adr/C.md", "docs/adr/B.md"]
+    assert [c.dense_rank for c in results] == [1, 2, 3]
+    assert [c.dense_distance for c in results] == pytest.approx([0.0, 0.4, 1.0], abs=1e-6)
 
 
-def test_a_sparse_only_chunk_gets_no_phantom_dense_contribution(conn) -> None:
-    """ADR-003 Amendment 1, asserted rather than assumed.
-
-    With top_k=2 the dense list is A and C, so B is ranked by the sparse side
-    alone. Its score must be exactly the sparse contribution. The old
-    COALESCE(rank, 999) form would have added 1/(60+999) = 0.000944 on top.
-    """
+def test_rrf_score_is_the_dense_only_contribution(conn) -> None:
+    """1/(60 + dense_rank): what a dense-only chunk scored under the fusion (ADR-018)."""
     seed(conn)
-    results = run(conn, top_k=2)
-
-    b = next(c for c in results if c.metadata.source_path == "docs/adr/B.md")
-    assert b.dense_rank is None
-    assert b.sparse_rank == 1
-    assert b.rrf_score == pytest.approx(1 / (RRF_K + 1), abs=1e-9)
-    assert b.rrf_score != pytest.approx(1 / (RRF_K + 1) + 1 / (RRF_K + 999), abs=1e-9)
+    scores = [c.rrf_score for c in run(conn)]
+    assert scores == pytest.approx([1 / (RRF_K + r) for r in (1, 2, 3)], abs=1e-9)
 
 
-def test_dense_distance_is_real_even_for_a_sparse_only_match(conn) -> None:
-    """The value exists for every candidate; only the rank is absent."""
+def test_no_chunk_carries_a_sparse_rank_or_score(conn) -> None:
     seed(conn)
-    b = next(c for c in run(conn, top_k=2) if c.metadata.source_path == "docs/adr/B.md")
-    assert b.dense_distance == pytest.approx(1.0, abs=1e-6)
+    results = run(conn)
+    assert all(c.sparse_rank is None for c in results)
+    assert all(c.sparse_score == 0.0 for c in results)
 
 
 def test_top_k_is_honoured_and_order_is_descending(conn) -> None:
     seed(conn)
     results = run(conn, top_k=2)
-    assert len(results) <= 2
+    assert paths(results) == ["docs/adr/A.md", "docs/adr/C.md"]
     scores = [c.rrf_score for c in results]
     assert scores == sorted(scores, reverse=True)
 
 
 def test_retrieval_is_deterministic(conn) -> None:
     seed(conn)
-    first = [c.id for c in run(conn)]
-    second = [c.id for c in run(conn)]
+    first = [(c.id, c.rrf_score) for c in run(conn)]
+    second = [(c.id, c.rrf_score) for c in run(conn)]
     assert first == second
 
 
@@ -170,15 +151,6 @@ def test_collection_filter_excludes_the_other_collection(conn) -> None:
     assert {c.metadata.source_path for c in architecture} == {"docs/adr/B.md"}
 
 
-def test_a_question_matching_no_text_still_returns_dense_results(conn) -> None:
-    """The sparse side contributing nothing must not empty the result."""
-    seed(conn)
-    results = run(conn, text="zzzz nonexistentword")
-    assert len(results) == 3
-    assert all(c.sparse_rank is None for c in results)
-    assert all(c.dense_rank is not None for c in results)
-
-
 def test_empty_index_returns_an_empty_list(conn) -> None:
     """Not an exception: an unpopulated index is a state, not a failure."""
     assert run(conn) == []
@@ -193,72 +165,20 @@ def test_every_result_is_a_fully_populated_contract(conn) -> None:
         assert chunk.id > 0
 
 
-# ─── sanitising, empty queries and tie-breaking ──────────────────────────────
-#
-# Found while building ADR-015 (OR-joined lexemes), kept after its rejection:
-# they guard properties that must hold whatever builds the tsquery.
-#
-# C matches one of the two query terms. Under plain plainto_tsquery it has no
-# sparse rank; the tests below do not depend on whether it does.
-
-SANITISING_FIXTURE = [
-    ("A", "alpha alpha alpha", unit((0, 1.0)), "decisions"),
-    ("B", "debezium snowflake ingestion path", unit((1, 1.0)), "decisions"),
-    ("C", "gamma snowflake", unit((0, 0.6), (1, 0.8)), "decisions"),
-]
-
-
-@pytest.mark.parametrize("text", ["the and of is", ""])
-def test_a_query_with_no_lexemes_returns_dense_only_without_error(conn, text: str) -> None:
-    """An empty tsquery matches nothing; it must not raise or empty the result."""
-    seed(conn, SANITISING_FIXTURE)
-    results = run(conn, text=text)
-    assert len(results) == 3
-    assert all(c.sparse_rank is None for c in results)
-    assert all(c.dense_rank is not None for c in results)
-
-
-@pytest.mark.parametrize(
-    "noisy",
-    [
-        "debezium' snowflake",
-        "debezium: snowflake",
-        "debezium & snowflake!",
-        "debezium | snowflake",
-        "debezium <-> snowflake",
-        "debezium:* (snowflake)!",
-        "debezium\\ snowflake",
-    ],
-)
-def test_tsquery_syntax_in_the_input_is_inert(conn, noisy: str) -> None:
-    """Sanitising still comes from plainto_tsquery: operators are just noise."""
-    seed(conn, SANITISING_FIXTURE)
-
-    def shape(chunks):
-        return [(c.id, c.dense_rank, c.sparse_rank, c.rrf_score) for c in chunks]
-
-    assert shape(run(conn, text=noisy)) == shape(run(conn, text=QUERY_TEXT))
-
-
-def test_a_sparse_tie_breaks_by_id_not_by_heap_order(conn) -> None:
-    """Two chunks with identical text tie on sparse_score; the lower id ranks first.
+def test_a_distance_tie_breaks_by_id_not_by_heap_order(conn) -> None:
+    """Two chunks with identical vectors tie on distance; the lower id ranks first.
 
     The UPDATE rewrites the lower-id row at the end of the heap, so a sequential
     scan meets the higher id first. Without `id ASC` in the window, ROW_NUMBER
-    would follow that order.
-
-    Both chunks are in one file. Under ADR-017's rejected filter, two files made
-    the cutoff 1, both lexemes (df 2) were dropped, and the test failed for a
-    reason unrelated to tiebreaks. One file is harmless under plainto_tsquery and
-    keeps the test valid for the next per-file rule.
+    would follow that order. Found on the sparse side under ADR-015; the dense
+    side is now the only one.
     """
     seed(
         conn,
         [
-            ("T1", "debezium snowflake", unit((0, 1.0)), "decisions"),
-            ("T2", "debezium snowflake", unit((1, 1.0)), "decisions"),
+            ("T1", "first", unit((0, 1.0)), "decisions"),
+            ("T2", "second", unit((0, 1.0)), "decisions"),
         ],
-        file_of={"T1": "T", "T2": "T"},
     )
     with conn.cursor() as cur:
         cur.execute("SELECT min(id) FROM chunks")
@@ -266,13 +186,6 @@ def test_a_sparse_tie_breaks_by_id_not_by_heap_order(conn) -> None:
         cur.execute("UPDATE chunks SET token_count = token_count WHERE id = %s", (low,))
 
     first = run(conn)
-    ranks = {c.id: c.sparse_rank for c in first}
-    assert ranks[low] == 1
+    assert first[0].id == low
+    assert [c.dense_rank for c in first] == [1, 2]
     assert [c.id for c in run(conn)] == [c.id for c in first]
-# ─── Kept from ADR-017's BUILD (the filter itself was rejected) ──────────────
-
-
-def test_quotes_and_backslashes_in_the_input_do_not_raise(conn) -> None:
-    """Whatever builds the tsquery, this text must not reach it as syntax."""
-    seed(conn, SANITISING_FIXTURE)
-    assert len(run(conn, text="O'Reilly back\\slash x&y a:b 'quoted'")) == 3

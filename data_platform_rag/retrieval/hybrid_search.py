@@ -1,8 +1,7 @@
 """Hybrid search — dense (pgvector) + sparse (tsvector) fused by RRF.
 
-Implements ADR-003. The fusion happens in one query, not in Python: both ranked
-lists are computed over the same pre-filtered candidate set and joined, so a
-single round trip returns the fused ordering.
+Implemented ADR-003's fusion of a dense and a sparse list until ADR-018, which
+ranks by cosine distance alone. The ranking happens in one query, not in Python.
 
 Three things about the previous version of this module are corrected here, and
 all three are recorded in the feature's DESIGN:
@@ -27,32 +26,36 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
     import psycopg
 
-# ADR-003 fixes the RRF rank constant at 60 (Cormack et al., 2009). It is a
+# ADR-003 fixed the RRF rank constant at 60 (Cormack et al., 2009). Since ADR-018
+# it only computes `rrf_score = 1/(60 + dense_rank)`, kept so the contract and
+# artifacts stay comparable across the change. It is a
 # module constant rather than a settings field on purpose: tuning it belongs to
 # ADR-008 under RAGAS, not to a runtime knob that could be turned by accident.
 RRF_K = 60
 
 VALID_COLLECTIONS: frozenset[str] = frozenset(get_args(Collection))
 
-# Every column ChunkMetadata needs, plus the three scores. `content_tsv` is not
-# selected: it is the sparse index's input, never output.
+# ADR-018: retrieval ranks by cosine distance alone. The sparse side and the
+# fusion were removed after two repairs were measured and rejected (ADR-015,
+# ADR-017), both on RRF's equal ballot. The names in this module still say
+# "hybrid"; they change only if ADR-018 is accepted (its Consequences).
 #
-# The sparse side is plain `plainto_tsquery`, which ANDs every term, so it is
-# empty for most question-shaped input (ADR-003 Amendment 1 §B). OR-joining the
-# lexemes was tried and rejected by measurement (ADR-015, Outcome), and so was
-# OR-joining only the lexemes below a document-frequency cutoff (ADR-017,
-# Outcome).
+# Every column ChunkMetadata needs, plus the scores RetrievedChunk carries. The
+# contract is unchanged: `sparse_score` is 0.0 and `sparse_rank` NULL, which it
+# already reads as "the sparse side did not rank this chunk", and `rrf_score` is
+# 1/(60 + dense_rank) -- exactly what a dense-only chunk scored under the fusion,
+# so artifacts stay comparable across the change.
 #
-# Ties in either ranked list break by id, so a rank never depends on the
-# physical order of rows in the heap.
+# The search is exact: every candidate's distance, then ORDER BY with an id
+# tiebreak. An HNSW index scan would be approximate and could reorder a ranking
+# with no change to the corpus (ADR-018, Decision).
 HYBRID_QUERY = """
 WITH candidates AS (
   SELECT
     id, content, collection,
     source_project, source_type, source_path, source_anchor,
     adr_id, topic, status, keywords, chunk_index, token_count,
-    embedding <=> %(query_vector)s::vector AS dense_dist,
-    ts_rank_cd(content_tsv, plainto_tsquery('english', %(query_text)s)) AS sparse_score
+    embedding <=> %(query_vector)s::vector AS dense_dist
   FROM chunks
   WHERE collection = ANY(%(collections)s::text[])
 ),
@@ -61,28 +64,17 @@ dense_ranked AS (
   FROM candidates
   ORDER BY dense_dist ASC, id ASC
   LIMIT %(top_k)s
-),
-sparse_ranked AS (
-  SELECT id, ROW_NUMBER() OVER (ORDER BY sparse_score DESC, id ASC) AS sparse_rank
-  FROM candidates
-  WHERE sparse_score > 0
-  ORDER BY sparse_score DESC, id ASC
-  LIMIT %(top_k)s
 )
 SELECT
   c.id, c.content, c.collection,
   c.source_project, c.source_type, c.source_path, c.source_anchor,
   c.adr_id, c.topic, c.status, c.keywords, c.chunk_index, c.token_count,
-  c.dense_dist, c.sparse_score,
-  d.dense_rank, s.sparse_rank,
-  COALESCE(1.0 / (%(rrf_k)s + d.dense_rank), 0)
-  + COALESCE(1.0 / (%(rrf_k)s + s.sparse_rank), 0) AS rrf_score
+  c.dense_dist, 0.0 AS sparse_score,
+  d.dense_rank, NULL::bigint AS sparse_rank,
+  1.0 / (%(rrf_k)s + d.dense_rank) AS rrf_score
 FROM candidates c
-LEFT JOIN dense_ranked  d USING (id)
-LEFT JOIN sparse_ranked s USING (id)
-WHERE d.dense_rank IS NOT NULL OR s.sparse_rank IS NOT NULL
-ORDER BY rrf_score DESC, c.id ASC
-LIMIT %(top_k)s
+JOIN dense_ranked d USING (id)
+ORDER BY d.dense_rank ASC
 """
 
 
@@ -139,24 +131,23 @@ def row_to_chunk(row: dict[str, Any]) -> RetrievedChunk:
 def search(
     conn: psycopg.Connection,
     *,
-    query_text: str,
     query_vector: Sequence[float],
     collections: list[Collection],
     top_k: int,
 ) -> list[RetrievedChunk]:
-    """Run the fused query and return ranked chunks.
+    """Run the dense-only query and return ranked chunks.
 
     Takes an embedding rather than producing one, and takes an open connection
     rather than opening one -- the same split `indexer/writer.py` uses. It lets
-    an integration test drive ranking with hand-chosen vectors and assert on the
-    RRF arithmetic without loading a model.
+    an integration test drive ranking with hand-chosen vectors without loading a
+    model. It takes no query text: since ADR-018 the text's only role is to be
+    embedded, which `pipeline.retrieve` does, and none of it reaches SQL.
     """
     from psycopg.rows import dict_row
 
     query = build_hybrid_query(list(collections))
     params = {
         "query_vector": list(query_vector),
-        "query_text": query_text,
         "collections": list(collections),
         "top_k": top_k,
         "rrf_k": RRF_K,

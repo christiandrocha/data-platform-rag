@@ -19,11 +19,14 @@ def captured(monkeypatch: pytest.MonkeyPatch) -> dict:
     """Stub the model and the database, and record what `search` was asked for."""
     calls: dict = {}
 
-    monkeypatch.setattr(pipeline, "embed_query", lambda text: tuple([0.1] * DIM))
+    def fake_embed(text):
+        calls.update(embedded_text=text)
+        return tuple([0.1] * DIM)
 
-    def fake_search(conn, *, query_text, query_vector, collections, top_k):
+    monkeypatch.setattr(pipeline, "embed_query", fake_embed)
+
+    def fake_search(conn, *, query_vector, collections, top_k):
         calls.update(
-            query_text=query_text,
             query_vector=query_vector,
             collections=collections,
             top_k=top_k,
@@ -92,11 +95,11 @@ def test_non_positive_top_k_raises(bad: int, captured: dict) -> None:
         pipeline.retrieve("a question", top_k=bad)
 
 
-def test_question_text_reaches_the_sparse_side_unmodified(captured: dict) -> None:
-    """The same string embeds and drives plainto_tsquery; neither may be pre-mangled."""
+def test_question_text_is_embedded_unmodified(captured: dict) -> None:
+    """Since ADR-018 the text's only role is to be embedded; it must not be pre-mangled."""
     question = "How does each project handle CDC deletes?"
     pipeline.retrieve(question)
-    assert captured["query_text"] == question
+    assert captured["embedded_text"] == question
 
 
 def test_supplied_connection_is_used_without_opening_another(

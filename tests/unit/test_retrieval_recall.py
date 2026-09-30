@@ -15,6 +15,7 @@ from retrieval_recall import (  # noqa: E402
     baseline_deltas,
     comparability_problems,
     has_sparse_rows,
+    identical_rankings,
     summarise,
 )
 
@@ -23,8 +24,14 @@ SNAPSHOT = {
 }
 
 
-def row(sparse_rank=None):
-    return {"sparse_rank": sparse_rank}
+def row(sparse_rank=None, rank=1, path="p", anchor="Context"):
+    return {
+        "sparse_rank": sparse_rank,
+        "rank": rank,
+        "project": "proj",
+        "path": path,
+        "anchor": anchor,
+    }
 
 
 def result(qid, found_at, *, sparse=False, intent="decision"):
@@ -100,3 +107,36 @@ def test_a_changed_declared_path_is_refused() -> None:
     moved = [result("q1", 1)]
     moved[0]["declared_paths"] = ["proj/other"]
     assert comparability_problems(before, SNAPSHOT, moved)
+
+
+# ─── ADR-018 A4: identical rankings over the sparse-empty questions ──────────
+
+
+def with_ranking(qid, ranking):
+    r = result(qid, 1)
+    r["ranking"] = ranking
+    return r
+
+
+def test_identical_rankings_count_only_sparse_empty_baseline_questions() -> None:
+    before = artifact([
+        with_ranking("q1", [row(rank=1, path="a"), row(rank=2, path="b")]),
+        with_ranking("q2", [row(sparse_rank=1, rank=1, path="a")]),
+    ])
+    now = [
+        with_ranking("q1", [row(rank=1, path="a"), row(rank=2, path="b")]),
+        with_ranking("q2", [row(rank=1, path="z")]),
+    ]
+    assert identical_rankings(before, now) == {"identical": 1, "of": 1, "differ": []}
+
+
+def test_a_changed_anchor_is_a_different_ranking() -> None:
+    before = artifact([with_ranking("q1", [row(anchor="Context")])])
+    now = [with_ranking("q1", [row(anchor="Decision")])]
+    assert identical_rankings(before, now) == {"identical": 0, "of": 1, "differ": ["q1"]}
+
+
+def test_a_changed_order_is_a_different_ranking() -> None:
+    before = artifact([with_ranking("q1", [row(rank=1, path="a"), row(rank=2, path="b")])])
+    now = [with_ranking("q1", [row(rank=1, path="b"), row(rank=2, path="a")])]
+    assert identical_rankings(before, now)["differ"] == ["q1"]

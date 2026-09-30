@@ -28,9 +28,11 @@ Users ask questions about platform decisions. The system retrieves relevant chun
 ## Architecture
 
 **The query path.** The gate is the load-bearing decision of the project: a
-retrieval score below threshold returns the fallback rather than an answer. The
+question the corpus does not answer gets the fallback rather than an answer. The
 system is allowed to say it does not know, and it is never allowed to answer
-without a citation (ADR-006).
+without a citation (ADR-006). The LLM applies the gate under the system prompt's
+rule 3. A retrieval-score threshold was measured and cannot do it: cosine
+similarity does not separate in-scope from out-of-scope questions (ADR-019).
 
 ```mermaid
 graph LR
@@ -38,8 +40,8 @@ graph LR
     IC --> HR[dense retrieval<br/>pgvector cosine · exact · ADR-018]
     HR --> C[(top-20 candidates)]
     C -.-> RR[reranker<br/>ADR-005: measured, rejected · not wired]
-    RR -.below threshold · never an uncited answer.- FB([out of scope<br/>LinkedIn redirect])
     RR --> G[Claude Sonnet<br/>system-prompt-constrained]
+    G -.rule 3: context does not answer · never an uncited answer.- FB([out of scope<br/>LinkedIn redirect])
     G --> A([answer + cited chunks<br/>project · ADR-id · section])
     class FB gate;
     classDef gate fill:#fdf0d5,stroke:#c8922e,color:#4a3610;
@@ -86,11 +88,11 @@ Intent classifier (LLM-lite, four categories: decision / architecture / comparis
     ▼
 Reranker — not in the pipeline: ADR-005 measured two cross-encoders and rejected both
     │
-    ├──► Below-threshold check ──► Fallback: "Out of scope — ask on LinkedIn"
-    │
     ▼
 Anthropic Claude Sonnet (system-prompt-constrained, citation-required)
     │
+    ├──► Rule 3, context does not answer ──► Fallback: "Out of scope — ask on LinkedIn"
+    │        (no retrieval-score threshold: ADR-019 measured none separates)
     ▼
 Answer + cited source chunks (with metadata: project, ADR-id, section)
 
@@ -188,11 +190,14 @@ checkout" had only ever been demonstrated on the author's machine.
   2026-09-21, having gone unnoticed while it failed at the first step. The
   `ci.yml` lint and test jobs are green and are the ones that mean something
   right now.
-- **The fallback has no score to act on.** Retrieval is dense-only (ADR-018), and
-  every result still carries `rrf_score = 1/(60 + dense_rank)`, so the top score
-  is `1/61` for every question, in scope or not. ADR-006 wrote its threshold in
-  cosine (0.35). A cosine similarity score and a calibrated threshold are the next
-  retrieval ADR.
+- **The out-of-scope fallback rests on the LLM, and that is unmeasured.** ADR-019
+  measured top-1 cosine similarity over the golden set: the highest out-of-scope
+  question (0.7360, q005) outscores 14 of the 45 in-scope ones, so no threshold
+  separates them. ADR-006's score gate was superseded, and rule 3 of the system
+  prompt now sends the fallback. Whether the LLM does that correctly
+  (`fallback_accuracy`) needs `make eval`, which does not run yet.
+  `settings.fallback_threshold` (0.35) is unused and marked for removal, and
+  `rrf_score` still carries only the rank. Both leave in the ADR-019 follow-up.
 - **`HYBRID_TOP_K` / `settings.hybrid_top_k` keeps its old name.** It bounds the
   dense list. It is an environment variable in every deployment, so renaming it
   is an interface change that ADR-018 did not need.

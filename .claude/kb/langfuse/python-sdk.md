@@ -29,11 +29,10 @@ from langfuse.decorators import observe
 async def answer_query(query: str, session_id: str | None = None) -> AnswerResult:
     intent = await classify_intent(query)
     candidates = await dense_search(query, intent.collections)
-    top_chunks = await rerank(query, candidates)  # settings.rerank_top_k
-    if top_chunks[0].score < settings.fallback_threshold:
-        return AnswerResult(text=FALLBACK_MESSAGE, fallback=True, ...)
+    top_chunks = candidates[: settings.rerank_top_k]  # no reranker (ADR-005)
+    # No score gate (ADR-019): the LLM returns FALLBACK_MESSAGE under rule 3.
     answer = await generate(query, top_chunks)  # @observe(as_type="generation")
-    return AnswerResult(...)
+    return AnswerResult(fallback_fired=(answer == FALLBACK_MESSAGE), ...)
 ```
 
 ## Flushing before shutdown

@@ -56,7 +56,10 @@ Every number above is an estimate until `make eval-ci` produces measured
 Langfuse cost data. Per AGENTS.md, published figures come from runs, not from
 this table.
 
-## Fallback queries are free
+## Fallback queries are not free
 
-When the fallback fires, no Generation is created. Only spans up to
-threshold_check exist. Fallback queries cost $0 in tokens.
+Since ADR-019 there is no score gate: the LLM sends the fallback under the system
+prompt's rule 3, so an out-of-scope query costs a Generation like any other.
+Its output is the short fallback string, so it costs less than an answer, but not
+$0. ADR-006 counted "zero LLM cost on out-of-scope queries" as a benefit, and
+that benefit went with the score gate.

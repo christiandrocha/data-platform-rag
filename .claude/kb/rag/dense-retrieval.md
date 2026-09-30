@@ -77,7 +77,17 @@ unused, so that would be a query change, not a migration.
 
 ## What the score cannot do
 
-**`rrf_score` cannot drive the fallback.** The top score is `1/61` for every
-question, in scope or not (ADR-018 P2, measured). ADR-006 wrote its threshold in
-cosine; a `1 - dense_distance` score and a calibrated
-`settings.fallback_threshold` are the next retrieval ADR.
+**No retrieval score can drive the fallback.**
+
+- `rrf_score` is `1/61` for every top chunk, in scope or not (ADR-018 P2,
+  measured).
+- Top-1 cosine similarity (`1 - dense_distance`) was measured by ADR-019 and does
+  not separate either. The highest out-of-scope question (q005, 0.7360) outscores
+  14 of the 45 in-scope ones (lowest: q027, 0.6040). Similarity measures topic
+  proximity, not answerability: "Flink versus Kafka Streams" sits next to a corpus
+  about Kafka.
+
+ADR-006's score gate is superseded. The LLM sends the fallback under rule 3.
+`settings.fallback_threshold` is unused until the ADR-019 follow-up removes it.
+`make retrieval-recall` prints the four separability numbers on every run, so a
+new embedding model (ADR-004) can re-test the question.

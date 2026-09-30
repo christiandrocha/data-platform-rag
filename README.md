@@ -196,8 +196,8 @@ checkout" had only ever been demonstrated on the author's machine.
   separates them. ADR-006's score gate was superseded, and rule 3 of the system
   prompt now sends the fallback. Whether the LLM does that correctly
   (`fallback_accuracy`) needs `make eval`, which does not run yet.
-  `settings.fallback_threshold` (0.35) is unused and marked for removal, and
-  `rrf_score` still carries only the rank. Both leave in the ADR-019 follow-up.
+  `settings.fallback_threshold` and the constant retrieval fields (`rrf_score`,
+  `sparse_score`, `sparse_rank`) were removed in ADR-019 Amendment 1.
 - **`HYBRID_TOP_K` / `settings.hybrid_top_k` keeps its old name.** It bounds the
   dense list. It is an environment variable in every deployment, so renaming it
   is an interface change that ADR-018 did not need.

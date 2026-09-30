@@ -34,21 +34,19 @@ class ChunkMetadata(BaseModel):
 class RetrievedChunk(BaseModel):
     """A chunk returned by dense retrieval (ADR-018), before reranking.
 
-    `sparse_score` is always 0.0 and `sparse_rank` always None since ADR-018, and
-    `rrf_score` is 1/(60 + dense_rank). Kept so artifacts compare across the change.
+    Five fields, all produced by the query. `rrf_score`, `sparse_score` and
+    `sparse_rank` were removed in ADR-019 Amendment 1: since ADR-018 they held the
+    rank as a float, 0.0 and None for every chunk. `extra="forbid"` makes a caller
+    still passing one fail loudly instead of having it silently dropped.
     """
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     id: int
     content: str
     metadata: ChunkMetadata
     dense_distance: float = Field(ge=0.0)
-    sparse_score: float = Field(ge=0.0)
-    rrf_score: float = Field(ge=0.0)
-    # Which side ranked this chunk, and at what position. None means the chunk
-    # was not in that side's top-k at all -- not the same as scoring zero there.
-    dense_rank: int | None = Field(default=None, ge=1)
-    sparse_rank: int | None = Field(default=None, ge=1)
+    # Required since dense-only retrieval: every returned chunk has a dense rank.
+    dense_rank: int = Field(ge=1)
 
 
 class RerankedChunk(RetrievedChunk):

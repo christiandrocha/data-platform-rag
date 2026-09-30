@@ -45,7 +45,7 @@ COMMIT;
 
 -- 5. Query plan baseline — the query retrieval actually runs
 -- Mirrors DENSE_QUERY in data_platform_rag/retrieval/dense_search.py with the
--- parameters inlined: top_k = 20, rrf_k = 60, and the first chunk's embedding
+-- parameters inlined: top_k = 20, and the first chunk's embedding
 -- standing in for a query vector. If that constant changes, this section
 -- changes with it.
 --
@@ -68,8 +68,7 @@ dense_ranked AS (
   SELECT id, ROW_NUMBER() OVER (ORDER BY dense_dist ASC, id ASC) AS dense_rank
   FROM candidates ORDER BY dense_dist ASC, id ASC LIMIT 20
 )
-SELECT c.id, 0.0 AS sparse_score, NULL::bigint AS sparse_rank,
-  1.0 / (60 + d.dense_rank) AS rrf_score
+SELECT c.id, c.dense_dist, d.dense_rank
 FROM candidates c
 JOIN dense_ranked d USING (id)
 ORDER BY d.dense_rank ASC;

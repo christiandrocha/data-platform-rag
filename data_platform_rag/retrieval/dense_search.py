@@ -26,13 +26,6 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
     import psycopg
 
-# ADR-003 fixed the RRF rank constant at 60 (Cormack et al., 2009). Since ADR-018
-# it only computes `rrf_score = 1/(60 + dense_rank)`, kept so the contract and
-# artifacts stay comparable across the change. It is a
-# module constant rather than a settings field on purpose: tuning it belongs to
-# ADR-008 under RAGAS, not to a runtime knob that could be turned by accident.
-RRF_K = 60
-
 VALID_COLLECTIONS: frozenset[str] = frozenset(get_args(Collection))
 
 # ADR-018: retrieval ranks by cosine distance alone. The sparse side and the
@@ -40,11 +33,9 @@ VALID_COLLECTIONS: frozenset[str] = frozenset(get_args(Collection))
 # ADR-017), both on RRF's equal ballot. This module was `hybrid_search.py` until
 # ADR-018 was accepted; superseded and rejected ADRs still use that name.
 #
-# Every column ChunkMetadata needs, plus the scores RetrievedChunk carries. The
-# contract is unchanged: `sparse_score` is 0.0 and `sparse_rank` NULL, which it
-# already reads as "the sparse side did not rank this chunk", and `rrf_score` is
-# 1/(60 + dense_rank) -- exactly what a dense-only chunk scored under the fusion,
-# so artifacts stay comparable across the change.
+# Every column ChunkMetadata needs, plus the distance and the rank. The constant
+# columns ADR-018 kept for comparability (`sparse_score`, `sparse_rank`,
+# `rrf_score`, and RRF_K behind the last) were removed in ADR-019 Amendment 1.
 #
 # The search is exact: every candidate's distance, then ORDER BY with an id
 # tiebreak. An HNSW index scan would be approximate and could reorder a ranking
@@ -69,9 +60,7 @@ SELECT
   c.id, c.content, c.collection,
   c.source_project, c.source_type, c.source_path, c.source_anchor,
   c.adr_id, c.topic, c.status, c.keywords, c.chunk_index, c.token_count,
-  c.dense_dist, 0.0 AS sparse_score,
-  d.dense_rank, NULL::bigint AS sparse_rank,
-  1.0 / (%(rrf_k)s + d.dense_rank) AS rrf_score
+  c.dense_dist, d.dense_rank
 FROM candidates c
 JOIN dense_ranked d USING (id)
 ORDER BY d.dense_rank ASC
@@ -121,10 +110,7 @@ def row_to_chunk(row: dict[str, Any]) -> RetrievedChunk:
             token_count=row["token_count"],
         ),
         dense_distance=float(row["dense_dist"]),
-        sparse_score=float(row["sparse_score"]),
-        rrf_score=float(row["rrf_score"]),
         dense_rank=row["dense_rank"],
-        sparse_rank=row["sparse_rank"],
     )
 
 
@@ -150,7 +136,6 @@ def search(
         "query_vector": list(query_vector),
         "collections": list(collections),
         "top_k": top_k,
-        "rrf_k": RRF_K,
     }
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(query, params)

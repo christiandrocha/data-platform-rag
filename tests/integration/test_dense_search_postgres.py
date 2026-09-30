@@ -22,7 +22,7 @@ import pytest
 
 from data_platform_rag.contracts import Chunk, ChunkMetadata, IndexedSnapshot
 from data_platform_rag.indexer.writer import write_project
-from data_platform_rag.retrieval.dense_search import RRF_K, search
+from data_platform_rag.retrieval.dense_search import search
 
 DIM = 384
 PROJECT = "sdd-kafka-snowflake-2"
@@ -107,32 +107,19 @@ def test_ranking_is_cosine_distance_alone(conn) -> None:
     assert [c.dense_distance for c in results] == pytest.approx([0.0, 0.4, 1.0], abs=1e-6)
 
 
-def test_rrf_score_is_the_dense_only_contribution(conn) -> None:
-    """1/(60 + dense_rank): what a dense-only chunk scored under the fusion (ADR-018)."""
-    seed(conn)
-    scores = [c.rrf_score for c in run(conn)]
-    assert scores == pytest.approx([1 / (RRF_K + r) for r in (1, 2, 3)], abs=1e-9)
-
-
-def test_no_chunk_carries_a_sparse_rank_or_score(conn) -> None:
-    seed(conn)
-    results = run(conn)
-    assert all(c.sparse_rank is None for c in results)
-    assert all(c.sparse_score == 0.0 for c in results)
-
-
 def test_top_k_is_honoured_and_order_is_descending(conn) -> None:
     seed(conn)
     results = run(conn, top_k=2)
     assert paths(results) == ["docs/adr/A.md", "docs/adr/C.md"]
-    scores = [c.rrf_score for c in results]
-    assert scores == sorted(scores, reverse=True)
+    assert [c.dense_rank for c in results] == [1, 2]
+    distances = [c.dense_distance for c in results]
+    assert distances == sorted(distances)
 
 
 def test_retrieval_is_deterministic(conn) -> None:
     seed(conn)
-    first = [(c.id, c.rrf_score) for c in run(conn)]
-    second = [(c.id, c.rrf_score) for c in run(conn)]
+    first = [(c.id, c.dense_rank, c.dense_distance) for c in run(conn)]
+    second = [(c.id, c.dense_rank, c.dense_distance) for c in run(conn)]
     assert first == second
 
 

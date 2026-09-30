@@ -20,9 +20,6 @@ similarity (`1 - dense_distance`) is recorded, and the run prints whether the
 in-scope and out-of-scope questions separate on it: ADR-019's fork reads those
 four numbers to decide what gates the out-of-scope fallback.
 
-Per question, the artifact also records whether the sparse side ranked
-anything, so a change in recall can be traced to the sparse side rather than
-inferred.
 
 `--baseline FILE` prints the four numbers ADR-017's decision rule reads (A1-A4)
 against an earlier artifact. It prints numbers, not a verdict: the rule lives in
@@ -60,14 +57,13 @@ def load_questions() -> list[dict]:
 
 
 def has_sparse_rows(ranking: list[dict]) -> bool:
-    """Whether the sparse side ranked any chunk that reached the fused top k.
+    """Whether the sparse side ranked any chunk, in an artifact from before ADR-018.
 
-    The same test the 2026-09-29 before-reading was counted with (7/50), kept so
-    the two readings count alike. It misses a non-empty sparse list only if its
-    rank-1 chunk is pushed out of the fused top 20, which undercounts: A4 gets
-    harder to pass, never easier.
+    Artifacts written since ADR-019 Amendment 1 carry no `sparse_rank`, and read as
+    False: dense-only retrieval has no sparse rows. Kept so an old artifact still
+    works as a `--baseline` (ADR-018's A4 counts its sparse-empty questions).
     """
-    return any(row["sparse_rank"] is not None for row in ranking)
+    return any(row.get("sparse_rank") is not None for row in ranking)
 
 
 def top_similarity(ranking: list[dict]) -> float | None:
@@ -121,10 +117,8 @@ def evaluate(question: dict, max_k: int, conn=None) -> dict:
             "project": chunk.metadata.source_project,
             "path": chunk.metadata.source_path,
             "anchor": chunk.metadata.source_anchor,
-            "rrf_score": chunk.rrf_score,
             "dense_distance": chunk.dense_distance,
             "dense_rank": chunk.dense_rank,
-            "sparse_rank": chunk.sparse_rank,
         }
         for position, chunk in enumerate(chunks, start=1)
     ]
@@ -149,9 +143,7 @@ def evaluate(question: dict, max_k: int, conn=None) -> dict:
         "intent": question["intent"],
         "question": question["question"],
         "declared_paths": [f"{p}/{q}" for p, q in declared],
-        "top_rrf_score": ranking[0]["rrf_score"] if ranking else None,
         "top_similarity": top_similarity(ranking),
-        "has_sparse_rows": has_sparse_rows(ranking),
         "retrieved_at_k": hits,
         "ranking": ranking,
     }
@@ -178,11 +170,9 @@ def summarise(results: list[dict]) -> dict:
         }
     return {
         "questions": len(results),
-        "questions_with_sparse_rows": sum(1 for r in results if has_sparse_rows(r["ranking"])),
         "questions_in_scope": len(in_scope),
         "declared_paths": denominator,
         "source_recall_at_k": recall,
-        "top_rrf_scores": {r["id"]: r["top_rrf_score"] for r in results},
         "separability": separability(results),
     }
 
@@ -253,10 +243,6 @@ def baseline_deltas(baseline: dict, results: list[dict], summary: dict) -> dict:
         "lost_top3": sorted(top3_paths(baseline["results"]) - top3_paths(results)),
         "k10": (before_recall["10"]["found"], now_recall["10"]["found"]),
         "k20": (before_recall["20"]["found"], now_recall["20"]["found"]),
-        "sparse_rows": (
-            sum(1 for r in baseline["results"] if has_sparse_rows(r["ranking"])),
-            summary["questions_with_sparse_rows"],
-        ),
         "questions": summary["questions"],
         "identical_rankings": identical_rankings(baseline, results),
     }
@@ -319,11 +305,6 @@ def main() -> int:
         pct = f"{row['recall']:.0%}" if row["recall"] is not None else "n/a"
         print(f"  k={k:<3} {row['found']}/{row['declared']}  ({pct})")
 
-    print(
-        f"\n  questions with sparse rows: "
-        f"{summary['questions_with_sparse_rows']}/{summary['questions']}"
-    )
-
     print("\nPer question:")
     for result in results:
         if not result["declared_paths"]:
@@ -377,11 +358,9 @@ def main() -> int:
             print(f"        {qid}  {path}")
         print(f"  A3  k=10 found:  {d['k10'][0]} -> {d['k10'][1]} /{d['declared']}")
         print(f"      k=20 found:  {d['k20'][0]} -> {d['k20'][1]} /{d['declared']}")
-        print(f"      questions with sparse rows: {d['sparse_rows'][0]} -> "
-              f"{d['sparse_rows'][1]} /{d['questions']}  (ADR-017 A4)")
         same = d["identical_rankings"]
-        print(f"      sparse-empty questions ranked identically: "
-              f"{same['identical']}/{same['of']}  (ADR-018 A4)")
+        print(f"      questions ranked identically: {same['identical']}/{same['of']}  "
+              f"(the baseline's sparse-empty ones; ADR-018 A4)")
         for qid in same["differ"]:
             print(f"        differs: {qid}")
 

@@ -27,9 +27,7 @@ dense_ranked AS (
 )
 SELECT
   c.*,  -- every ChunkMetadata column, plus dense_dist
-  0.0 AS sparse_score,
-  d.dense_rank, NULL::bigint AS sparse_rank,
-  1.0 / (%(rrf_k)s + d.dense_rank) AS rrf_score
+  d.dense_rank
 FROM candidates c
 JOIN dense_ranked d USING (id)
 ORDER BY d.dense_rank ASC
@@ -41,10 +39,10 @@ Four details worth knowing before changing it:
   `id` tiebreak: a Seq Scan at 304 rows. An HNSW index scan would be approximate
   and could reorder a ranking with no change to the corpus. `sql/99_verify.sql`
   §6 proves the index usable; ADR-004 owns when it becomes worth using.
-- **`RetrievedChunk` kept its shape.** `sparse_score` is always 0.0 and
-  `sparse_rank` always None. `rrf_score` is `1/(RRF_K + dense_rank)`, exactly what
-  a dense-only chunk scored under the fusion, so artifacts compare across
-  ADR-018. It carries no information beyond the rank.
+- **`RetrievedChunk` has five fields**: `id`, `content`, `metadata`,
+  `dense_distance`, `dense_rank`. ADR-018 kept `rrf_score`, `sparse_score` and
+  `sparse_rank` as constants for comparability. ADR-019 Amendment 1 removed them,
+  and `extra="forbid"` rejects a caller that still passes one.
 - **No user text reaches SQL.** `search()` takes a vector; `pipeline.retrieve`
   embeds the question.
 - **Ties break by `id`.** Without it a tied rank follows heap order and can change
@@ -72,15 +70,14 @@ unused, so that would be a query change, not a migration.
 | Parameter | Value | Justification |
 |-----------|-------|--------------|
 | dense limit | `settings.hybrid_top_k` (currently 20) | Cover-and-rerank pattern. The setting keeps its pre-ADR-018 name (README Known Gaps) |
-| `RRF_K` | 60, module constant | Only computes `rrf_score` for compatibility since ADR-018 |
 | final limit | `settings.hybrid_top_k` | Feed to reranker, keep `settings.rerank_top_k` (currently 3) |
 
 ## What the score cannot do
 
 **No retrieval score can drive the fallback.**
 
-- `rrf_score` is `1/61` for every top chunk, in scope or not (ADR-018 P2,
-  measured).
+- `rrf_score` was `1/61` for every top chunk, in scope or not (ADR-018 P2,
+  measured). It was removed in ADR-019 Amendment 1.
 - Top-1 cosine similarity (`1 - dense_distance`) was measured by ADR-019 and does
   not separate either. The highest out-of-scope question (q005, 0.7360) outscores
   14 of the 45 in-scope ones (lowest: q027, 0.6040). Similarity measures topic
@@ -88,6 +85,6 @@ unused, so that would be a query change, not a migration.
   about Kafka.
 
 ADR-006's score gate is superseded. The LLM sends the fallback under rule 3.
-`settings.fallback_threshold` is unused until the ADR-019 follow-up removes it.
+`settings.fallback_threshold` was removed in ADR-019 Amendment 1.
 `make retrieval-recall` prints the four separability numbers on every run, so a
 new embedding model (ADR-004) can re-test the question.

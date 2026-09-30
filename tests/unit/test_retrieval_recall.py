@@ -16,7 +16,9 @@ from retrieval_recall import (  # noqa: E402
     comparability_problems,
     has_sparse_rows,
     identical_rankings,
+    separability,
     summarise,
+    top_similarity,
 )
 
 SNAPSHOT = {
@@ -140,3 +142,70 @@ def test_a_changed_order_is_a_different_ranking() -> None:
     before = artifact([with_ranking("q1", [row(rank=1, path="a"), row(rank=2, path="b")])])
     now = [with_ranking("q1", [row(rank=1, path="b"), row(rank=2, path="a")])]
     assert identical_rankings(before, now)["differ"] == ["q1"]
+
+
+# ─── ADR-019: separability of top-1 cosine similarity ────────────────────────
+
+
+def scored(qid, similarity, intent="decision", declared=True):
+    return {
+        "id": qid,
+        "intent": intent,
+        "declared_paths": ["proj/p"] if declared else [],
+        "top_similarity": similarity,
+    }
+
+
+def oos(qid, similarity):
+    return scored(qid, similarity, intent="out-of-scope", declared=False)
+
+
+def test_top_similarity_is_one_minus_the_rank_1_distance() -> None:
+    assert top_similarity([{"dense_distance": 0.25}, {"dense_distance": 0.4}]) == 0.75
+    assert top_similarity([]) is None
+
+
+def test_a_separable_set_has_both_counts_zero() -> None:
+    sep = separability([
+        scored("q1", 0.80), scored("q2", 0.70), oos("q9", 0.60), oos("q8", 0.50),
+    ])
+    assert sep["min_in_scope"] == 0.70 and sep["min_in_scope_id"] == "q2"
+    assert sep["max_out_of_scope"] == 0.60 and sep["max_out_of_scope_id"] == "q9"
+    assert sep["in_scope_at_or_below_max_oos"] == 0
+    assert sep["oos_at_or_above_min_in_scope"] == 0
+    assert (sep["in_scope"], sep["out_of_scope"]) == (2, 2)
+
+
+def test_one_in_scope_question_below_an_out_of_scope_one_is_overlap() -> None:
+    sep = separability([scored("q1", 0.80), scored("q2", 0.55), oos("q9", 0.60)])
+    assert sep["in_scope_at_or_below_max_oos"] == 1
+    assert sep["oos_at_or_above_min_in_scope"] == 1
+
+
+def test_an_exact_tie_counts_as_overlap() -> None:
+    """ADR-019: equality is overlap, on both sides."""
+    sep = separability([scored("q1", 0.80), scored("q2", 0.60), oos("q9", 0.60)])
+    assert sep["in_scope_at_or_below_max_oos"] == 1
+    assert sep["oos_at_or_above_min_in_scope"] == 1
+
+
+def test_the_population_comes_from_intent_not_ids() -> None:
+    sep = separability([scored("q1", 0.80), oos("q999", 0.90)])
+    assert sep["max_out_of_scope_id"] == "q999"
+    assert sep["out_of_scope"] == 1
+
+
+def test_in_scope_means_the_recall_population() -> None:
+    """Not out-of-scope AND declaring paths: the set recall is computed over."""
+    sep = separability([scored("q1", 0.80), scored("q2", 0.10, declared=False), oos("q9", 0.5)])
+    assert sep["in_scope"] == 1
+    assert sep["min_in_scope_id"] == "q1"
+
+
+def test_a_missing_class_gives_none_not_a_crash() -> None:
+    only_in = separability([scored("q1", 0.8)])
+    assert only_in["max_out_of_scope"] is None
+    assert only_in["in_scope_at_or_below_max_oos"] is None
+    only_oos = separability([oos("q9", 0.5)])
+    assert only_oos["min_in_scope"] is None
+    assert only_oos["oos_at_or_above_min_in_scope"] is None

@@ -14,7 +14,6 @@ import pytest
 from data_platform_rag.contracts import RetrievedChunk
 from data_platform_rag.retrieval.dense_search import (
     DENSE_QUERY,
-    RRF_K,
     build_dense_query,
     row_to_chunk,
 )
@@ -59,28 +58,15 @@ def test_limit_comes_from_a_parameter_not_a_literal() -> None:
     assert DENSE_QUERY.count("LIMIT %(top_k)s") == 1
 
 
-def test_rrf_score_is_the_dense_only_contribution() -> None:
-    """ADR-018: 1/(60 + dense_rank), what a dense-only chunk scored under the fusion.
-
-    No sentinel rank either (ADR-003 Amendment 1's 999 must not come back).
-    """
-    assert "1.0 / (%(rrf_k)s + d.dense_rank) AS rrf_score" in DENSE_QUERY
-    assert "999" not in DENSE_QUERY
-
-
-def test_the_sparse_fields_are_constant() -> None:
-    """The contract keeps them; 0.0 and NULL already mean "the sparse side did not rank it"."""
-    assert "0.0 AS sparse_score" in DENSE_QUERY
-    assert "NULL::bigint AS sparse_rank" in DENSE_QUERY
+@pytest.mark.parametrize("column", ["rrf_score", "sparse_score", "sparse_rank", "%(rrf_k)s"])
+def test_query_returns_no_constant_columns(column: str) -> None:
+    """Removed in ADR-019 Amendment 1: they held the rank, 0.0 and NULL for every chunk."""
+    assert column not in DENSE_QUERY
 
 
 def test_ordering_is_deterministic() -> None:
     """The final order is the dense rank, which already carries the id tiebreak."""
     assert "ORDER BY d.dense_rank ASC" in DENSE_QUERY
-
-
-def test_rrf_constant_matches_adr_003() -> None:
-    assert RRF_K == 60
 
 
 def test_build_dense_query_rejects_empty_collections() -> None:
@@ -118,10 +104,7 @@ def make_row(**overrides) -> dict:
         "chunk_index": 2,
         "token_count": 310,
         "dense_dist": 0.154,
-        "sparse_score": 0.0912,
         "dense_rank": 1,
-        "sparse_rank": 4,
-        "rrf_score": 0.0320,
     }
     row.update(overrides)
     return row
@@ -133,14 +116,7 @@ def test_row_to_chunk_builds_a_valid_contract() -> None:
     assert chunk.metadata.source_anchor == "Alternatives considered"
     assert chunk.metadata.token_count == 310
     assert chunk.dense_rank == 1
-    assert chunk.sparse_rank == 4
-
-
-def test_row_to_chunk_preserves_a_missing_side_as_none() -> None:
-    """None means 'not in that side's top-k'. It must not become 0."""
-    chunk = row_to_chunk(make_row(sparse_rank=None, sparse_score=0.0))
-    assert chunk.sparse_rank is None
-    assert chunk.sparse_score == 0.0
+    assert chunk.dense_distance == 0.154
 
 
 @pytest.mark.parametrize("missing", ["source_type", "chunk_index", "token_count"])

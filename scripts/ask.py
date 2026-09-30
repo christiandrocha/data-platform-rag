@@ -4,8 +4,8 @@ A development instrument, not a product surface. It exists because the curator
 has 45 golden-set questions left to write and no way to check whether a question
 retrieves the ADR it was anchored to -- the feedback loop this feature is for.
 
-Two views. The default is one line per chunk: rank, the rrf score, the dense
-distance and its similarity, and the citation with its section anchor, which
+Two views. The default is one line per chunk: rank, the dense distance
+and its similarity, and the citation with its section anchor, which
 answers "did my anchor come back, and where". `--full` adds the chunk text,
 which answers "why did this rank".
 """
@@ -25,15 +25,14 @@ def render(chunks: list[RetrievedChunk], *, full: bool) -> str:
     if not chunks:
         return "no chunks retrieved."
 
-    # Dense-only since ADR-018: no sparse column. `rrf` is 1/(60 + dense rank),
-    # kept because every recall artifact reports it. `sim` is 1 - dense distance,
-    # the number ADR-006's gate would read (ADR-019).
-    lines = [f"{'#':>2}  {'rrf':>7}  {'dense':>6}  {'sim':>6}  source"]
+    # Dense-only (ADR-018). `sim` is 1 - dense distance: the number ADR-019
+    # measured and found unable to separate out-of-scope questions.
+    lines = [f"{'#':>2}  {'dense':>6}  {'sim':>6}  source"]
     for position, chunk in enumerate(chunks, start=1):
         meta = chunk.metadata
         anchor = meta.source_anchor or "—"
         lines.append(
-            f"{position:>2}  {chunk.rrf_score:>7.5f}  "
+            f"{position:>2}  "
             f"{chunk.dense_distance:>6.3f}  "
             f"{1.0 - chunk.dense_distance:>6.3f}  "
             f"{meta.source_project}/{meta.source_path} [{anchor}]"

@@ -188,3 +188,30 @@ question lets 4 of the 5 out-of-scope questions through.
   query reaches the LLM, so it spends tokens and the LLM may fabricate under weak
   context. `make eval`'s `fallback_accuracy` (in `RAGASAggregate`) is the number.
   It cannot run until generation exists and an API key is configured.
+
+## Amendment 1 — 2026-09-30, the follow-up: constant fields and the unused setting removed
+
+The Outcome said `settings.fallback_threshold` leaves "in the ADR-019 follow-up",
+and the Decision said `rrf_score` "leaves with the next ADR's contract change".
+The author chose (2026-09-30) to remove every field that has been constant since
+ADR-018 in the same change, and to run it as a lean feature
+(`.claude/sdd/features/adr-019-cleanup/`) with no new ADR.
+
+**Removed:**
+
+- `RetrievedChunk.rrf_score` (the rank as `1/(60 + rank)`), `sparse_score`
+  (always 0.0) and `sparse_rank` (always None). `RetrievedChunk` now has five
+  fields, `dense_rank` is required, and `extra="forbid"` rejects a caller still
+  passing a removed field.
+- `RRF_K` and the query's `%(rrf_k)s` parameter. The query returns no constant
+  columns.
+- `settings.fallback_threshold` and `FALLBACK_THRESHOLD` in `.env.example`.
+  `Settings` has `extra="ignore"`, so a deployment still setting the variable keeps
+  starting (unit test).
+- `rrf_score`, `sparse_rank`, `top_rrf_score(s)`, `has_sparse_rows` and
+  `questions_with_sparse_rows` from new recall artifacts. The script still reads
+  old artifacts as baselines.
+
+**Neutral, measured:** `make retrieval-recall baseline=retrieval-recall-20260930-185210.json`
+→ `retrieval-recall-20260930-192021.json`: k=3/10/20 38/44/46, 0 top-3 paths lost,
+50/50 rankings identical, and every `dense_distance` and `top_similarity` equal.

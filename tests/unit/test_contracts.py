@@ -107,8 +107,7 @@ def test_reranked_chunk_extends_retrieved_chunk():
         content="foo",
         metadata=meta,
         dense_distance=0.1,
-        sparse_score=0.2,
-        rrf_score=0.3,
+        dense_rank=1,
         rerank_score=0.9,
     )
     assert isinstance(rc, RetrievedChunk)
@@ -129,7 +128,7 @@ def test_answer_result_valid():
     reranked = [
         RerankedChunk(
             id=42, content="x", metadata=meta,
-            dense_distance=0.1, sparse_score=0.2, rrf_score=0.3, rerank_score=0.95,
+            dense_distance=0.1, dense_rank=1, rerank_score=0.95,
         )
     ]
     result = AnswerResult(
@@ -256,3 +255,33 @@ def test_index_run_report_defaults_to_nothing_done():
     assert report.written == []
     assert report.skipped == []
     assert report.chunks_written == 0
+
+
+# ─── RetrievedChunk after ADR-019 Amendment 1 ────────────────────────────────
+
+
+def _meta():
+    return ChunkMetadata(
+        source_project="sdd-kafka-snowflake-2",
+        source_type="adr",
+        source_path="x.md",
+        chunk_index=0,
+        token_count=100,
+    )
+
+
+@pytest.mark.parametrize("removed", ["rrf_score", "sparse_score", "sparse_rank"])
+def test_retrieved_chunk_rejects_a_removed_field(removed):
+    """extra="forbid": a stale caller fails loudly instead of losing the value silently."""
+    with pytest.raises(ValidationError):
+        RetrievedChunk(
+            id=1, content="x", metadata=_meta(), dense_distance=0.1, dense_rank=1,
+            **{removed: 0.0},
+        )
+
+
+def test_retrieved_chunk_requires_a_dense_rank():
+    with pytest.raises(ValidationError):
+        RetrievedChunk(id=1, content="x", metadata=_meta(), dense_distance=0.1)
+    with pytest.raises(ValidationError):
+        RetrievedChunk(id=1, content="x", metadata=_meta(), dense_distance=0.1, dense_rank=0)

@@ -61,9 +61,15 @@ def test_has_sparse_rows_reads_any_sparse_rank() -> None:
     assert not has_sparse_rows([])
 
 
-def test_summary_counts_questions_with_sparse_rows() -> None:
-    summary = summarise([result("q1", 1, sparse=True), result("q2", 1)])
-    assert summary["questions_with_sparse_rows"] == 1
+def test_a_ranking_without_sparse_rank_keys_has_no_sparse_rows() -> None:
+    """Artifacts since ADR-019 Amendment 1 carry no sparse_rank at all."""
+    assert not has_sparse_rows([{"rank": 1, "project": "proj", "path": "p", "anchor": "a"}])
+
+
+def test_summary_no_longer_writes_constant_fields() -> None:
+    summary = summarise([result("q1", 1), result("q2", 1)])
+    assert "questions_with_sparse_rows" not in summary
+    assert "top_rrf_scores" not in summary
     assert summary["questions"] == 2
 
 
@@ -75,7 +81,6 @@ def test_deltas_list_a_path_that_left_the_top_3() -> None:
     assert d["lost_top3"] == [("q2", "proj/p")]
     assert d["k10"] == (2, 3)
     assert d["k20"] == (3, 3)
-    assert d["sparse_rows"] == (0, 2)
 
 
 def test_comparable_artifacts_have_no_problems() -> None:
@@ -209,3 +214,11 @@ def test_a_missing_class_gives_none_not_a_crash() -> None:
     only_oos = separability([oos("q9", 0.5)])
     assert only_oos["min_in_scope"] is None
     assert only_oos["oos_at_or_above_min_in_scope"] is None
+
+
+def test_identical_rankings_against_an_old_baseline_from_a_new_artifact() -> None:
+    """Old baseline rows carry sparse_rank; new ones do not. Only rank/path/anchor count."""
+    before = artifact([with_ranking("q1", [row(rank=1, path="a")])])
+    new_row = {"rank": 1, "project": "proj", "path": "a", "anchor": "Context", "dense_rank": 1}
+    now = [with_ranking("q1", [new_row])]
+    assert identical_rankings(before, now) == {"identical": 1, "of": 1, "differ": []}

@@ -1,11 +1,12 @@
 # ADR-017 — Document-frequency-filtered OR for the sparse side of hybrid retrieval
 
-**Status**: Planned — the decision rule below decides it, applied once to BUILD's first reading
+**Status**: Rejected — 2026-09-30, by the measurement this ADR fixed in advance. See [Outcome](#outcome)
 **Date**: 2026-09-30
 
-> Written before any measurement of the filtered query. The Context, Decision and
-> Consequences sections will be kept exactly as written when the Outcome is
-> added. They are the prediction the outcome is judged against, as in ADR-015.
+> Planned on 2026-09-30 with the decision rule below, and rejected the same day by
+> BUILD's measurement. The Context, Decision and Consequences sections are kept
+> exactly as written before the measurement. They are the prediction the outcome
+> is judged against, as in ADR-015.
 
 ## Context
 
@@ -205,4 +206,89 @@ rejected, as a new ADR.
 
 ## Outcome
 
-*Pending BUILD's measurement.*
+**Rejected (A1 and A2).** Measured on 2026-09-30 on the before-reading's snapshot
+(`sdd-kafka-databricks@f1295df9`, `sdd-kafka-snowflake-2@82a2e269`,
+`BAAI/bge-small-en-v1.5`, golden set q001–q050). Before:
+`.claude/dev/reports/retrieval-recall-20260929-190639.json`. After:
+`retrieval-recall-20260930-173857.json` and `-173912.json`: two runs, identical
+rankings and scores. Code measured: commit
+`feat(retrieval): DF-filtered OR on the sparse side (ADR-017, pre-measurement)`.
+The rule was checked byte-identical to DEFINE's immediately before the first run.
+
+| | before | after | rule | |
+|---|---|---|---|---|
+| A1: recall at k=3 | 38/57 | **39/57** (+1) | ≥ 40/57 | **fails** |
+| A2: today's top-3 paths that left the top 3 | — | **1** (q007) | 0 | **fails** |
+| A3: recall at k=10 / k=20 | 44 / 46 | 46 / 49 | ≥ 44 / ≥ 46 | holds |
+| A4: questions with sparse rows | 7/50 | 49/50 | > 7/50 | holds |
+
+The reading falls in the table's row "k=3 up by exactly 1 path", recorded as
+**directional, below margin**, and A2 fails independently. The rule is the
+decision. What follows describes the reading and does not reopen it.
+
+**By intent at k=3:** decision 20 → **19**, architecture 15 → **17**, comparison
+3 → 3. At k=20, comparison 4 → 6 and architecture 20 → 21.
+
+**Declared paths that changed rank** (22 of 57). Rank at k ≤ 20, `—` for absent:
+
+| moved into or up within the top 3 | left or lost ground within the top 3 |
+|---|---|
+| q031 README (databricks) — → **1** | q007 `0025_bronze_is_append_only` **1 → 5** |
+| q032 README (second path) 9 → **3** | q003, q004, q008, q011, q023, q032, q036, q043: 1 → 2 |
+| q016 `003_parametrized_notebooks` 2 → 1 | |
+| q042 README 3 → 1 | |
+
+Below the top 3: q029 17 → 6 and 12 → 15, q044 — → 5, q045 — → 20 and 2 → 3,
+q046 5 → 12, q002 7 → 8, q003 5 → 8, q015 6 → 7.
+
+**Why q007 fell.** The question is *"Why is the Bronze layer strictly
+insert-only…"*. The filter dropped `bronz` (162 chunks) and `layer` (86). Those
+are the question's subject, but the corpus uses them everywhere. It kept `row`
+at exactly 68, the cutoff, because equality keeps. The declared ADR's four chunks
+held dense ranks 1–4 and got no sparse rank in the top 20. Three other chunks
+each had a contribution from both sides: `resolve_cdc.sql` (dense 13, sparse 2)
+and two sections of the Databricks `005_gold_dimension_join_integrity` (dense
+12 and 10, sparse 11 and 18). Two mid-list votes outweigh one first-place vote.
+Any chunk that ranks moderately on both sides beats a chunk that ranks first on
+one side only. This is ADR-015's lesson in a different case. **The filter changed
+which lexemes vote, not the equal ballot**, which the Consequences said it would
+not touch.
+
+**The predictions, checked:**
+
+- *P1, comparison recall at k=3 stays ≤ 4/11*: **right**, 3/11.
+- *P2, every out-of-scope top score rises, by less than ADR-015's +81%*:
+  **right in direction, wrong in size.** q005 0.01639 → 0.03252 (+98%), q047
+  +95%, q048 +84%, q049 +84%, q050 +81%. The filter did not make out-of-scope
+  questions look less confident than the unfiltered OR did. q005 rose more.
+- *P3, any k=3 gain comes from `decision` or `architecture`*: **right.** The net
+  +1 is architecture +2 and decision −1.
+
+**Cost, measured:** `EXPLAIN ANALYZE` of the filtered query on q002 (the
+`sql/99_verify.sql` question, run after the recall measurement): `sparse_query`
+is evaluated once (InitPlan), the per-lexeme counts use
+`Bitmap Index Scan on idx_chunks_content_tsv_gin` (11 loops), and execution took
+5.17 ms. The plan is in the feature's BUILD_REPORT.
+
+**What was reverted.** `HYBRID_QUERY` is back to `plainto_tsquery`. `sparse_terms`,
+the `SparseTerm`/`SparseTerms` contracts and `make ask`'s filter line are removed,
+since they described a filter that is not in use. After the revert,
+`make retrieval-recall` against the before-reading prints 38 / 0 lost / 44 / 46 /
+7, identical to the before-reading (`retrieval-recall-20260930-174033.json`).
+
+**What survives the rejection:**
+
+- **`make retrieval-recall baseline=FILE`.** It prints the four A1–A4 inputs and
+  refuses to compare artifacts from a different snapshot, embedding model or
+  golden set. The next retrieval ADR reads its rule off this.
+- **`questions with sparse rows`** in every recall artifact.
+- **The sanitising tests** gained quote, backslash, `:*`, `(` and `!` inputs.
+  **`seed(..., file_of=…)`** lets a fixture say which chunks share a file, and
+  the tiebreak test now uses it.
+
+**What this reopens.** Both lexical repairs of the sparse side have now been
+measured and rejected. The unfiltered OR (ADR-015) and the filtered OR (this ADR)
+both failed on an equal RRF ballot. The author's pre-agreed next step is the
+honest dense-only ADR (Alternative 7), as a new ADR. A sparse *weight* (Alternative
+6) remains out of scope for the reason given: nothing can tune it while RAGAS
+cannot run.

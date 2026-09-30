@@ -21,7 +21,7 @@ import pytest
 
 from data_platform_rag.contracts import Chunk, ChunkMetadata, IndexedSnapshot
 from data_platform_rag.indexer.writer import write_project
-from data_platform_rag.retrieval.hybrid_search import RRF_K, search, sparse_terms
+from data_platform_rag.retrieval.hybrid_search import RRF_K, search
 
 DIM = 384
 PROJECT = "sdd-kafka-snowflake-2"
@@ -47,8 +47,9 @@ def seed(conn, entries=FIXTURE, file_of=None) -> None:
     """Write the entries as one project. Each entry is its own file by default.
 
     `file_of` maps an entry name to a file name, to put several chunks in one
-    file. ADR-017's cutoff is the chunk count of the largest file, so a fixture
-    has to say which chunks share a file, not only which chunks exist.
+    file. Added for ADR-017, whose (rejected) cutoff was the chunk count of the
+    largest file: any rule that counts per file needs fixtures that say which
+    chunks share one.
     """
     file_of = file_of or {}
     chunks, embeddings = [], []
@@ -246,9 +247,10 @@ def test_a_sparse_tie_breaks_by_id_not_by_heap_order(conn) -> None:
     scan meets the higher id first. Without `id ASC` in the window, ROW_NUMBER
     would follow that order.
 
-    Both chunks are in one file. In two files the ADR-017 cutoff would be 1, both
-    lexemes (df 2) would be dropped, and the test would fail for a reason that has
-    nothing to do with tiebreaks (ADR-017, Consequences).
+    Both chunks are in one file. Under ADR-017's rejected filter, two files made
+    the cutoff 1, both lexemes (df 2) were dropped, and the test failed for a
+    reason unrelated to tiebreaks. One file is harmless under plainto_tsquery and
+    keeps the test valid for the next per-file rule.
     """
     seed(
         conn,
@@ -267,92 +269,10 @@ def test_a_sparse_tie_breaks_by_id_not_by_heap_order(conn) -> None:
     ranks = {c.id: c.sparse_rank for c in first}
     assert ranks[low] == 1
     assert [c.id for c in run(conn)] == [c.id for c in first]
+# ─── Kept from ADR-017's BUILD (the filter itself was rejected) ──────────────
 
 
-# ─── ADR-017: the document-frequency filter ──────────────────────────────────
-#
-# Every entry below is its own file unless `file_of` says otherwise, so the
-# cutoff (chunk count of the largest file) is 1: a lexeme in two chunks is
-# dropped, a lexeme in one is kept.
-
-DF_FIXTURE = [
-    ("A", "alpha alpha alpha", unit((0, 1.0)), "decisions"),
-    ("B", "debezium snowflake ingestion path", unit((1, 1.0)), "decisions"),
-    ("C", "gamma snowflake", unit((0, 0.6), (1, 0.8)), "decisions"),
-]
-
-
-def sparse_ranked(chunks) -> set[str]:
-    return {c.metadata.source_path for c in chunks if c.sparse_rank is not None}
-
-
-def test_a_query_whose_every_lexeme_is_above_the_cutoff_gets_no_sparse_rows(conn) -> None:
-    """Not an error and not the unfiltered OR: the sparse list is just empty."""
-    seed(conn, DF_FIXTURE)
-    results = run(conn, text="snowflake")
-    assert len(results) == 3
-    assert sparse_ranked(results) == set()
-    assert all(c.dense_rank is not None for c in results)
-
-
-def test_kept_lexemes_are_or_joined_and_dropped_ones_do_not_vote(conn) -> None:
-    """`debezium` (B) and `gamma` (C) are kept and OR-joined; `snowflake` is dropped.
-
-    Under plainto_tsquery's AND, no chunk contains all three and the sparse side
-    would be empty. Under the unfiltered OR, `snowflake` would vote for B and C.
-    """
-    seed(conn, DF_FIXTURE)
-    results = run(conn, text="debezium gamma snowflake")
-    assert sparse_ranked(results) == {"docs/adr/B.md", "docs/adr/C.md"}
-
-    report = sparse_terms(conn, "debezium gamma snowflake")
-    assert report.cutoff == 1
-    assert {(t.term, t.df) for t in report.kept} == {("'debezium'", 1), ("'gamma'", 1)}
-    assert {(t.term, t.df) for t in report.dropped} == {("'snowflak'", 2)}
-
-
-def test_the_cutoff_follows_the_corpus_without_a_code_change(conn) -> None:
-    """Put B and C in one file: the largest file has 2 chunks, `snowflake` is kept."""
-    seed(conn, DF_FIXTURE)
-    assert sparse_terms(conn, "snowflake").kept == []
-
-    seed(conn, DF_FIXTURE, file_of={"B": "BC", "C": "BC"})
-    report = sparse_terms(conn, "snowflake")
-    assert report.cutoff == 2
-    assert [(t.term, t.df, t.kept) for t in report.terms] == [("'snowflak'", 2, True)]
-    assert sparse_ranked(run(conn, text="snowflake")) == {"docs/adr/BC.md"}
-
-
-def test_the_filter_report_matches_the_ranking(conn) -> None:
-    """A chunk is sparse-ranked only if it contains a lexeme the report kept."""
-    seed(conn, DF_FIXTURE)
-    report = sparse_terms(conn, QUERY_TEXT)
-    assert [t.term for t in report.kept] == ["'debezium'"]
-    assert [t.term for t in report.dropped] == ["'snowflak'"]
-    assert sparse_ranked(run(conn)) == {"docs/adr/B.md"}
-
-
-def test_quotes_and_backslashes_round_trip_through_the_cast(conn) -> None:
-    """Fragments of plainto_tsquery's output are cast back; none may raise."""
-    seed(conn, DF_FIXTURE)
-    text = "O'Reilly back\\slash x&y a:b 'quoted'"
-    assert len(run(conn, text=text)) == 3
-    assert all(t.df == 0 for t in sparse_terms(conn, text).terms)
-
-
-@pytest.mark.parametrize("text", ["the and of is", ""])
-def test_the_filter_report_for_a_query_with_no_lexemes_is_empty(conn, text: str) -> None:
-    seed(conn, DF_FIXTURE)
-    report = sparse_terms(conn, text)
-    assert report.cutoff == 1
-    assert report.terms == []
-
-
-def test_the_filter_report_on_an_empty_index_has_no_cutoff(conn) -> None:
-    """No file to measure: no cutoff, and a term compared with NULL is not kept."""
-    report = sparse_terms(conn, QUERY_TEXT)
-    assert report.cutoff is None
-    assert [(t.term, t.df, t.kept) for t in report.terms] == [
-        ("'debezium'", 0, False),
-        ("'snowflak'", 0, False),
-    ]
+def test_quotes_and_backslashes_in_the_input_do_not_raise(conn) -> None:
+    """Whatever builds the tsquery, this text must not reach it as syntax."""
+    seed(conn, SANITISING_FIXTURE)
+    assert len(run(conn, text="O'Reilly back\\slash x&y a:b 'quoted'")) == 3

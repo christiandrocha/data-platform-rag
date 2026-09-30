@@ -19,9 +19,9 @@ correctly retrieving nothing is not a recall event. Their top fused score is
 recorded anyway, because ADR-006's `fallback_threshold` is currently an
 undefended 0.35 and this is the evidence it needs.
 
-Per question, the artifact also records what ADR-017's document-frequency
-filter kept and dropped, and whether the sparse side ranked anything, so a
-change in recall can be traced to the filter rather than inferred.
+Per question, the artifact also records whether the sparse side ranked
+anything, so a change in recall can be traced to the sparse side rather than
+inferred.
 
 `--baseline FILE` prints the four numbers ADR-017's decision rule reads (A1-A4)
 against an earlier artifact. It prints numbers, not a verdict: the rule lives in
@@ -43,7 +43,6 @@ import yaml
 
 from data_platform_rag.config import get_settings
 from data_platform_rag.indexer.writer import connect, current_snapshots
-from data_platform_rag.retrieval.hybrid_search import sparse_terms
 from data_platform_rag.retrieval.pipeline import retrieve
 
 GOLDEN_SET = Path("docs/golden-set/evaluation_questions.yml")
@@ -107,7 +106,7 @@ def evaluate(question: dict, max_k: int, conn=None) -> dict:
         for k in K_VALUES
     }
 
-    result = {
+    return {
         "id": question["id"],
         "intent": question["intent"],
         "question": question["question"],
@@ -117,14 +116,6 @@ def evaluate(question: dict, max_k: int, conn=None) -> dict:
         "retrieved_at_k": hits,
         "ranking": ranking,
     }
-    if conn is not None:
-        report = sparse_terms(conn, question["question"])
-        result["sparse_terms"] = {
-            "cutoff": report.cutoff,
-            "kept": [[t.term, t.df] for t in report.kept],
-            "dropped": [[t.term, t.df] for t in report.dropped],
-        }
-    return result
 
 
 def summarise(results: list[dict]) -> dict:
@@ -189,7 +180,11 @@ def top3_paths(results: list[dict]) -> set[tuple[str, str]]:
 
 
 def baseline_deltas(baseline: dict, results: list[dict], summary: dict) -> dict:
-    """The four inputs of ADR-017's decision rule, before and after. No verdict."""
+    """The four inputs of ADR-017's decision rule, before and after. No verdict.
+
+    Kept after ADR-017's rejection: any change to the sparse side is judged on
+    the same four inputs, and the comparability check guards every one of them.
+    """
     before_recall = baseline["summary"]["source_recall_at_k"]
     now_recall = summary["source_recall_at_k"]
     return {

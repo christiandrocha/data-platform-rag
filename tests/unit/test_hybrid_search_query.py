@@ -15,8 +15,6 @@ from data_platform_rag.contracts import RetrievedChunk
 from data_platform_rag.retrieval.hybrid_search import (
     HYBRID_QUERY,
     RRF_K,
-    SPARSE_TERMS_CTES,
-    SPARSE_TERMS_QUERY,
     build_hybrid_query,
     row_to_chunk,
 )
@@ -168,49 +166,3 @@ def test_both_ranked_lists_break_ties_by_id() -> None:
     assert "ROW_NUMBER() OVER (ORDER BY sparse_score DESC, id ASC)" in HYBRID_QUERY
     assert "ORDER BY dense_dist ASC, id ASC\n  LIMIT" in HYBRID_QUERY
     assert "ORDER BY sparse_score DESC, id ASC\n  LIMIT" in HYBRID_QUERY
-
-
-# ─── ADR-017: document-frequency filter ──────────────────────────────────────
-
-
-def test_search_and_report_share_one_filter() -> None:
-    """The report of what the filter did cannot describe a different filter."""
-    assert SPARSE_TERMS_CTES in HYBRID_QUERY
-    assert SPARSE_TERMS_CTES in SPARSE_TERMS_QUERY
-    assert SPARSE_TERMS_QUERY.count("plainto_tsquery(") == 1
-
-
-def test_a_lexeme_at_the_cutoff_is_kept() -> None:
-    """"More chunks than the largest file" drops; equal to it keeps."""
-    assert "WHERE df <= max_file_chunks" in HYBRID_QUERY
-    assert "t.df <= c.max_file_chunks AS kept" in SPARSE_TERMS_QUERY
-
-
-def test_the_cutoff_is_the_largest_file_across_projects() -> None:
-    """Two projects share relative paths (both have README.md): group by both."""
-    assert "GROUP BY source_project, source_path" in SPARSE_TERMS_CTES
-
-
-def test_the_tsquery_is_rebuilt_from_postgres_output_not_from_user_text() -> None:
-    """Sanitising stays with plainto_tsquery (ADR-017, Decision)."""
-    assert "plainto_tsquery('english', %(query_text)s)::text, ' & '" in SPARSE_TERMS_CTES
-    assert "t.term::tsquery" in SPARSE_TERMS_CTES
-    assert "string_agg(term, ' | ' ORDER BY term)::tsquery" in HYBRID_QUERY
-
-
-def test_no_kept_lexeme_scores_zero_not_null() -> None:
-    """string_agg over nothing is NULL; the contract's sparse_score must stay a float."""
-    assert "COALESCE(ts_rank_cd(content_tsv, (SELECT tsq FROM sparse_query)), 0)" in HYBRID_QUERY
-
-
-def test_the_dense_side_is_unchanged() -> None:
-    """ADR-017 touches the sparse side only."""
-    assert (
-        "dense_ranked AS (\n"
-        "  SELECT id, ROW_NUMBER() OVER (ORDER BY dense_dist ASC, id ASC) AS dense_rank\n"
-        "  FROM candidates\n"
-        "  ORDER BY dense_dist ASC, id ASC\n"
-        "  LIMIT %(top_k)s\n"
-        ")"
-    ) in HYBRID_QUERY
-    assert "embedding <=> %(query_vector)s::vector AS dense_dist" in HYBRID_QUERY

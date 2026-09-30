@@ -15,9 +15,10 @@ than averaged per question, so a question declaring two paths contributes twice:
 it has twice as much to find.
 
 Out-of-scope questions declare no paths and are excluded from the denominator --
-correctly retrieving nothing is not a recall event. Their top fused score is
-recorded anyway, because ADR-006's `fallback_threshold` is currently an
-undefended 0.35 and this is the evidence it needs.
+correctly retrieving nothing is not a recall event. Every question's top-1 cosine
+similarity (`1 - dense_distance`) is recorded, and the run prints whether the
+in-scope and out-of-scope questions separate on it: ADR-019's fork reads those
+four numbers to decide what gates the out-of-scope fallback.
 
 Per question, the artifact also records whether the sparse side ranked
 anything, so a change in recall can be traced to the sparse side rather than
@@ -69,6 +70,42 @@ def has_sparse_rows(ranking: list[dict]) -> bool:
     return any(row["sparse_rank"] is not None for row in ranking)
 
 
+def top_similarity(ranking: list[dict]) -> float | None:
+    """Cosine similarity of the rank-1 chunk: the number ADR-006's gate would read."""
+    return 1.0 - ranking[0]["dense_distance"] if ranking else None
+
+
+def separability(results: list[dict]) -> dict:
+    """Do in-scope and out-of-scope questions separate on top similarity? (ADR-019)
+
+    Four numbers, no verdict: the fork in ADR-019 maps them to a branch. The
+    in-scope population is the one recall uses (not out-of-scope, and declaring
+    paths), so both numbers describe one set. A tie counts on both sides: `<=`
+    and `>=`, because ADR-019 treats equality as overlap.
+    """
+    scored = [r for r in results if r.get("top_similarity") is not None]
+    in_scope = [r for r in scored if r["intent"] != OUT_OF_SCOPE and r["declared_paths"]]
+    oos = [r for r in scored if r["intent"] == OUT_OF_SCOPE]
+    low = min(in_scope, key=lambda r: r["top_similarity"], default=None)
+    high = max(oos, key=lambda r: r["top_similarity"], default=None)
+    return {
+        "in_scope": len(in_scope),
+        "out_of_scope": len(oos),
+        "min_in_scope": low["top_similarity"] if low else None,
+        "min_in_scope_id": low["id"] if low else None,
+        "max_out_of_scope": high["top_similarity"] if high else None,
+        "max_out_of_scope_id": high["id"] if high else None,
+        "in_scope_at_or_below_max_oos": (
+            sum(1 for r in in_scope if r["top_similarity"] <= high["top_similarity"])
+            if high else None
+        ),
+        "oos_at_or_above_min_in_scope": (
+            sum(1 for r in oos if r["top_similarity"] >= low["top_similarity"])
+            if low else None
+        ),
+    }
+
+
 def evaluate(question: dict, max_k: int, conn=None) -> dict:
     """Retrieve once at max_k and read every k off the same ranking.
 
@@ -85,6 +122,7 @@ def evaluate(question: dict, max_k: int, conn=None) -> dict:
             "path": chunk.metadata.source_path,
             "anchor": chunk.metadata.source_anchor,
             "rrf_score": chunk.rrf_score,
+            "dense_distance": chunk.dense_distance,
             "dense_rank": chunk.dense_rank,
             "sparse_rank": chunk.sparse_rank,
         }
@@ -112,6 +150,7 @@ def evaluate(question: dict, max_k: int, conn=None) -> dict:
         "question": question["question"],
         "declared_paths": [f"{p}/{q}" for p, q in declared],
         "top_rrf_score": ranking[0]["rrf_score"] if ranking else None,
+        "top_similarity": top_similarity(ranking),
         "has_sparse_rows": has_sparse_rows(ranking),
         "retrieved_at_k": hits,
         "ranking": ranking,
@@ -144,6 +183,7 @@ def summarise(results: list[dict]) -> dict:
         "declared_paths": denominator,
         "source_recall_at_k": recall,
         "top_rrf_scores": {r["id"]: r["top_rrf_score"] for r in results},
+        "separability": separability(results),
     }
 
 
@@ -298,10 +338,33 @@ def main() -> int:
             verdict = f"rank {rank}" if rank is not None else "NOT retrieved in top 20"
             print(f"  {result['id']}  [{result['intent']:<12}] {path} — {verdict}")
 
-    print("\nTop RRF score per question (ADR-006 threshold evidence):")
-    for qid, score in summary["top_rrf_scores"].items():
-        shown = f"{score:.5f}" if score is not None else "no chunks"
-        print(f"  {qid}  {shown}")
+    sep = summary["separability"]
+
+    def fmt(value: float | None) -> str:
+        return f"{value:.4f}" if value is not None else "n/a"
+
+    print("\nSeparability of top-1 cosine similarity (ADR-019, numbers only):")
+    print(f"  lowest in-scope:     {fmt(sep['min_in_scope'])}  ({sep['min_in_scope_id']}, "
+          f"of {sep['in_scope']})")
+    print(f"  highest out-of-scope: {fmt(sep['max_out_of_scope'])}  "
+          f"({sep['max_out_of_scope_id']}, of {sep['out_of_scope']})")
+    print(f"  in-scope at or below the highest out-of-scope: "
+          f"{sep['in_scope_at_or_below_max_oos']}")
+    print(f"  out-of-scope at or above the lowest in-scope:  "
+          f"{sep['oos_at_or_above_min_in_scope']}")
+
+    by_similarity = sorted(
+        (r for r in results if r["top_similarity"] is not None),
+        key=lambda r: r["top_similarity"],
+    )
+    oos_rows = [r for r in by_similarity if r["intent"] == OUT_OF_SCOPE]
+    in_rows = [r for r in by_similarity if r["intent"] != OUT_OF_SCOPE][: len(oos_rows) + 5]
+    print("\n  out-of-scope, by top similarity:")
+    for r in oos_rows:
+        print(f"    {r['id']}  {fmt(r['top_similarity'])}")
+    print("  lowest in-scope, by top similarity:")
+    for r in in_rows:
+        print(f"    {r['id']}  {fmt(r['top_similarity'])}  [{r['intent']}]")
 
     if baseline is not None:
         d = baseline_deltas(baseline, results, summary)

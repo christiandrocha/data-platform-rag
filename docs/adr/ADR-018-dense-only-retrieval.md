@@ -1,12 +1,14 @@
 # ADR-018 — Dense-only retrieval
 
-**Status**: Planned — the decision rule below decides it, applied once to BUILD's first reading
+**Status**: Accepted — 2026-09-30, by the measurement this ADR fixed in advance. See [Outcome](#outcome)
 **Date**: 2026-09-30
+**Supersedes**: ADR-003
 
-> Written before any measurement of the dense-only query. The Context, Decision
-> and Consequences sections will be kept exactly as written when the Outcome is
-> added. They are the prediction the outcome is judged against, as in ADR-015 and
-> ADR-017.
+> Planned on 2026-09-30 with the decision rule below, and accepted the same day by
+> BUILD's measurement. The Context, Decision and Consequences sections are kept
+> exactly as written before the measurement. They are the prediction the outcome
+> is judged against, as in ADR-015 and ADR-017. They name the module as it was
+> then (`hybrid_search.py`). The rename they announce happened after the Outcome.
 
 ## Context
 
@@ -194,4 +196,52 @@ worth using.
 
 ## Outcome
 
-*Pending BUILD's measurement.*
+**Accepted.** Measured on 2026-09-30 on the before-reading's snapshot
+(`sdd-kafka-databricks@f1295df9`, `sdd-kafka-snowflake-2@82a2e269`,
+`BAAI/bge-small-en-v1.5`, golden set q001–q050). Before:
+`.claude/dev/reports/retrieval-recall-20260929-190639.json`. After:
+`retrieval-recall-20260930-182007.json` and `-182023.json`: two runs, identical
+rankings and scores. Code measured: commit
+`feat(retrieval): dense-only query (ADR-018, pre-measurement)`. The rule was
+checked byte-identical to DEFINE's immediately before the first run.
+
+| | before | after | rule | |
+|---|---|---|---|---|
+| A1: recall at k=3 | 38/57 | 38/57 | ≥ 38/57 | holds |
+| A2: today's top-3 paths that left the top 3 | — | 0 | 0 | holds |
+| A3: recall at k=10 / k=20 | 44 / 46 | 44 / 46 | ≥ 44 / ≥ 46 | holds |
+| A4: sparse-empty questions ranked identically | — | 43/43 | 43/43 | holds |
+
+The reading falls in the table's row **"nothing moves at any k"**, which DEFINE
+fixed as Accepted: the sparse vote changed nothing the LLM sees, and removing it
+is the point. The 43 sparse-empty questions also kept identical `rrf_score`
+values, as the Decision predicted from `1/(60 + dense_rank)`.
+
+**The 7 sparse-active questions** (q003, q006, q027, q033, q034, q038, q039):
+
+- 2 of them (q003, q039) have identical top-20 rankings. Their sparse rows did not
+  change even the order.
+- 4 of them (q006, q027, q034, q038) changed order somewhere in the top 20, but
+  no declared path moved.
+- 1 of them (q033) moved a declared path: `sdd-kafka-snowflake-2/README.md`,
+  rank 1 → 2. It stays in the top 3.
+
+**The predictions, checked:**
+
+- *P1, at most 2 of the 7 see a declared path change rank*: **right**, 1 (q033).
+- *P2, every out-of-scope top score stays exactly 0.01639*: **right**, all five
+  (q005, q047–q050) at `1/61`. That is also every in-scope question's top score,
+  which is why the fallback needs a different score.
+- *P3, no declared path of a comparison question changes rank*: **right.** None of
+  the 7 sparse-active questions is a comparison, so this held by construction.
+  It was not a test of anything.
+
+**Cost, measured:** `EXPLAIN ANALYZE` of `sql/99_verify.sql` §5: Seq Scan over
+304 rows, one WindowAgg, no reference to `content_tsv`, 1.8 ms execution. §6
+still proves the HNSW index usable. The plan is in the feature's BUILD_REPORT.
+
+**What followed the acceptance**, in a separate commit that does not change
+behaviour: the rename to `retrieval/dense_search.py`, `DENSE_QUERY` and
+`build_dense_query`, proven neutral by a recall run whose `results` equal the
+measured artifact's. The public claims in README, AGENTS.md and the KB were
+rewritten to match. ADR-003 was marked Superseded in place.

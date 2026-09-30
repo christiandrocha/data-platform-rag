@@ -4,7 +4,7 @@ A development instrument, not a product surface. It exists because the curator
 has 45 golden-set questions left to write and no way to check whether a question
 retrieves the ADR it was anchored to -- the feedback loop this feature is for.
 
-Two views. The default is one line per chunk: rank, the three scores, and the
+Two views. The default is one line per chunk: rank, the two scores, and the
 citation with its section anchor, which answers "did my anchor come back, and
 where". `--full` adds the chunk text, which answers "why did this rank".
 """
@@ -20,30 +20,19 @@ from data_platform_rag.retrieval.pipeline import retrieve
 PREVIEW_CHARS = 96
 
 
-def _score(value: float | None, rank: int | None, fmt: str) -> str:
-    """A score is only shown when its side actually ranked the chunk.
-
-    An em dash means "this side did not rank it", which a 0.0 would disguise as
-    "this side scored it zero". The two are different: a chunk can carry a real
-    sparse score and still fall outside the sparse top-k.
-    """
-    if rank is None:
-        return "     —"
-    return format(value, fmt)
-
-
 def render(chunks: list[RetrievedChunk], *, full: bool) -> str:
     if not chunks:
         return "no chunks retrieved."
 
-    lines = [f"{'#':>2}  {'rrf':>7}  {'dense':>6}  {'sparse':>6}  source"]
+    # Dense-only since ADR-018: no sparse column. `rrf` is 1/(60 + dense rank),
+    # kept because every recall artifact reports it.
+    lines = [f"{'#':>2}  {'rrf':>7}  {'dense':>6}  source"]
     for position, chunk in enumerate(chunks, start=1):
         meta = chunk.metadata
         anchor = meta.source_anchor or "—"
         lines.append(
             f"{position:>2}  {chunk.rrf_score:>7.5f}  "
-            f"{_score(chunk.dense_distance, chunk.dense_rank, '>6.3f')}  "
-            f"{_score(chunk.sparse_score, chunk.sparse_rank, '>6.4f')}  "
+            f"{chunk.dense_distance:>6.3f}  "
             f"{meta.source_project}/{meta.source_path} [{anchor}]"
         )
         if full:

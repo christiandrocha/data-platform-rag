@@ -28,7 +28,7 @@ from langfuse.decorators import observe
 @observe(name="query")
 async def answer_query(query: str, session_id: str | None = None) -> AnswerResult:
     intent = await classify_intent(query)
-    candidates = await hybrid_search(query, intent.collections)
+    candidates = await dense_search(query, intent.collections)
     top_chunks = await rerank(query, candidates)  # settings.rerank_top_k
     if top_chunks[0].score < settings.fallback_threshold:
         return AnswerResult(text=FALLBACK_MESSAGE, fallback=True, ...)

@@ -164,7 +164,11 @@ class Chunk(BaseModel):
 
 
 class RetrievedChunk(BaseModel):
-    """A chunk returned by hybrid retrieval, before reranking."""
+    """A chunk returned by dense retrieval (ADR-018), before reranking.
+
+    `sparse_score` is always 0.0 and `sparse_rank` always None since ADR-018, and
+    `rrf_score` is 1/(60 + dense_rank). Kept so artifacts compare across the change.
+    """
 
     model_config = ConfigDict(frozen=True)
 

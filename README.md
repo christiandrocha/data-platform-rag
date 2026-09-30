@@ -21,7 +21,7 @@
 
 Users ask questions about platform decisions. The system retrieves relevant chunks from the corpus, reranks them, and generates grounded answers with source citations. Out-of-scope questions receive a fallback message redirecting to the author's LinkedIn.
 
-**Why it exists**: to demonstrate that RAG in 2026 is not a hello-world exercise — it is production-grade retrieval discipline (pgvector + HNSW tuning + hybrid retrieval + RAGAS-measured quality + Langfuse-instrumented cost and traces) applied to the exact kind of technical corpus that an AI Data Engineer builds every day at work.
+**Why it exists**: to demonstrate that RAG in 2026 is not a hello-world exercise — it is production-grade retrieval discipline (pgvector + HNSW tuning + dense retrieval whose every change is measured against a rule fixed in advance + RAGAS-measured quality + Langfuse-instrumented cost and traces) applied to the exact kind of technical corpus that an AI Data Engineer builds every day at work.
 
 ---
 
@@ -35,7 +35,7 @@ without a citation (ADR-006).
 ```mermaid
 graph LR
     Q([user query]) --> IC[intent classifier<br/>decision · architecture · comparison · hybrid]
-    IC --> HR[hybrid retrieval<br/>pgvector cosine + GIN tsvector · RRF]
+    IC --> HR[dense retrieval<br/>pgvector cosine · exact · ADR-018]
     HR --> C[(top-20 candidates)]
     C -.-> RR[reranker<br/>ADR-005: measured, rejected · not wired]
     RR -.below threshold · never an uncited answer.- FB([out of scope<br/>LinkedIn redirect])
@@ -79,7 +79,7 @@ User query
     ▼
 Intent classifier (LLM-lite, four categories: decision / architecture / comparison / hybrid)
     │
-    ├──► Hybrid retrieval (pgvector cosine + PostgreSQL GIN tsvector, RRF fusion)
+    ├──► Dense retrieval (pgvector cosine distance, exact scan, ADR-018)
     │        │
     │        └──► Top-20 candidates
     │
@@ -106,7 +106,7 @@ Every stage traced in Langfuse. Every query logged in Postgres.
 | Layer | Choice | Rationale |
 |---|---|---|
 | Vector store | PostgreSQL + pgvector | Requirement in target job specs. HNSW indexes, tuned parameters. |
-| Sparse search | PostgreSQL GIN + tsvector + ts_rank_cd | Hybrid retrieval without another dependency. |
+| Sparse search | none in retrieval (ADR-018) | `content_tsv` and its GIN index stay in the schema, unused. Two repairs of the sparse side were measured and rejected (ADR-015, ADR-017), and removing it changed nothing in the top 3. |
 | Embedding | `bge-small-en-v1.5` | 384-dim, open-source, strong on technical text. Benchmarked during BUILD. |
 | Reranker | none (ADR-005, rejected) | Two local cross-encoders measured over the RRF top 20 on 2026-09-21: `ms-marco-MiniLM-L-6-v2` 3–5 s per question, `bge-reranker-base` 18–29 s. Both dropped a protected golden-set path from the top 3, so neither ships. |
 | LLM | Claude Sonnet 4.6 (Anthropic API) | Quality on English technical text. Estimated ~$0.008 per non-fallback query.[^cost] |
@@ -161,9 +161,9 @@ checkout" had only ever been demonstrated on the author's machine.
 1. **Retrieval quality.** Retrieval runs (`make ask`, `make retrieval-recall`),
    and three attempts to fix its top-3 order were measured and rejected:
    OR-joined lexemes (ADR-015), cross-encoder reranking (ADR-005), and OR-joined
-   lexemes filtered by document frequency (ADR-017). The sparse half of hybrid
-   retrieval still returns rows for only 7 of 50 golden questions. Next in line:
-   an ADR on honest dense-only retrieval, then the embedding (ADR-004).
+   lexemes filtered by document frequency (ADR-017). Retrieval has been
+   dense-only since ADR-018, which changed nothing in the top 3. Next in line: a
+   score the fallback can use (ADR-006), then the embedding (ADR-004).
 2. **Reranking** (ADR-005) — rejected 2026-09-21; the setting is kept for a
    re-measurement when the golden set grows.
 3. **Generation.** The system prompt is versioned in `generation/prompt.py`.
@@ -188,11 +188,14 @@ checkout" had only ever been demonstrated on the author's machine.
   2026-09-21, having gone unnoticed while it failed at the first step. The
   `ci.yml` lint and test jobs are green and are the ones that mean something
   right now.
-- **"Hybrid retrieval" is dense-only for question-shaped input.** The sparse
-  side ANDs every term (`plainto_tsquery`), so it returns rows for 7 of 50 golden
-  questions. Two repairs were measured and rejected (ADR-015, ADR-017). The
-  diagrams above show the design, not what ranks today. An ADR on honest
-  dense-only retrieval is next.
+- **The fallback has no score to act on.** Retrieval is dense-only (ADR-018), and
+  every result still carries `rrf_score = 1/(60 + dense_rank)`, so the top score
+  is `1/61` for every question, in scope or not. ADR-006 wrote its threshold in
+  cosine (0.35). A cosine similarity score and a calibrated threshold are the next
+  retrieval ADR.
+- **`HYBRID_TOP_K` / `settings.hybrid_top_k` keeps its old name.** It bounds the
+  dense list. It is an environment variable in every deployment, so renaming it
+  is an interface change that ADR-018 did not need.
 - **ADR-004 is still Planned, and it covers two things neither of which is
   done.** `bge-small-en-v1.5` is the *declared baseline*, chosen by argument and
   never benchmarked against an alternative. The HNSW parameters (`m = 16`,
@@ -294,7 +297,7 @@ Explicitly deferred until v1 is live and measured. Each carries a trigger condit
 | Active alerts (PagerDuty-style) | Product becomes production-critical |
 | Performance tests (p50/p95/p99, throughput) | Query volume or corpus size grows past the point where RAGAS + the `sql/99_verify.sql` EXPLAIN ANALYZE baseline cover the real regression risk |
 | Cohere Rerank (paid) | Context Precision plateaus below 0.85 |
-| Full BM25 via pg_search extension | ts_rank_cd sparse quality proves inadequate |
+| A sparse side again (BM25 via pg_search, or a weighted vote) | RAGAS can run and tune a weight: ADR-015 and ADR-017 both failed on RRF's equal ballot (see ADR-018) |
 | Corpus expansion to more platform components | Additional reference projects added to the platform |
 
 ---

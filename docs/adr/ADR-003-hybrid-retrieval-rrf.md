@@ -1,7 +1,14 @@
 # ADR-003 — Hybrid retrieval via reciprocal rank fusion
 
-**Status**: Accepted
+**Status**: Superseded by [ADR-018](ADR-018-dense-only-retrieval.md) — 2026-09-30
 **Date**: 2026-09-10
+
+> Superseded, not rewritten. Retrieval has ranked by cosine distance alone since
+> ADR-018. The sparse side was inert for question-shaped input (Amendment 1 §B),
+> two repairs were measured and rejected (ADR-015, ADR-017), and removing it
+> changed nothing the LLM sees. What survives of this ADR is `RRF_K` = 60, only as
+> the formula for `rrf_score = 1/(60 + dense_rank)`, kept so artifacts compare
+> across the change. The text below is the decision as it was taken.
 
 ## Context
 

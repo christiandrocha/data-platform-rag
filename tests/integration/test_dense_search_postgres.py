@@ -22,7 +22,7 @@ import pytest
 
 from data_platform_rag.contracts import Chunk, ChunkMetadata, IndexedSnapshot
 from data_platform_rag.indexer.writer import write_project
-from data_platform_rag.retrieval.hybrid_search import RRF_K, search
+from data_platform_rag.retrieval.dense_search import RRF_K, search
 
 DIM = 384
 PROJECT = "sdd-kafka-snowflake-2"

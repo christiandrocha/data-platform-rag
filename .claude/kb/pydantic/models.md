@@ -32,7 +32,11 @@ class ChunkMetadata(BaseModel):
 
 
 class RetrievedChunk(BaseModel):
-    """A chunk returned by hybrid retrieval, before reranking."""
+    """A chunk returned by dense retrieval (ADR-018), before reranking.
+
+    `sparse_score` is always 0.0 and `sparse_rank` always None since ADR-018, and
+    `rrf_score` is 1/(60 + dense_rank). Kept so artifacts compare across the change.
+    """
     model_config = ConfigDict(frozen=True)
 
     id: int
@@ -95,8 +99,8 @@ class RAGASReport(BaseModel):
 | IndexedSnapshot | indexer/writer.py | scripts/index_corpus.py (`--verify`, short-circuit) |
 | IndexRunReport | scripts/index_corpus.py | the CLI's own output |
 | Chunk | indexer/chunker.py | indexer/writer.py |
-| ChunkMetadata | indexer/writer.py | retrieval/hybrid_search.py, UI |
-| RetrievedChunk | retrieval/hybrid_search.py | retrieval/reranker.py |
+| ChunkMetadata | indexer/writer.py | retrieval/dense_search.py, UI |
+| RetrievedChunk | retrieval/dense_search.py | retrieval/reranker.py |
 | RerankedChunk | retrieval/reranker.py | generation/client.py, UI |
 | IntentClassification | retrieval/intent_classifier.py | pipeline orchestration |
 | AnswerResult | generation/pipeline.py | UI, Langfuse trace metadata |

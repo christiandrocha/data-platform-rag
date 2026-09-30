@@ -18,10 +18,12 @@
 ## Session parameter setting
 
 ```python
-async def hybrid_search(pool, query, ...):
+# Only if retrieval moves to an HNSW index scan (ADR-004). Today's DENSE_QUERY
+# is an exact scan by design (ADR-018), so ef_search has nothing to act on.
+async def dense_search(pool, query, ...):
     async with pool.acquire() as conn:
         await conn.execute("SET LOCAL hnsw.ef_search = 40")
-        rows = await conn.fetch(HYBRID_QUERY, ...)
+        rows = await conn.fetch(DENSE_QUERY, ...)
 ```
 
 Never set `hnsw.ef_search` globally — it's a per-query trade-off.

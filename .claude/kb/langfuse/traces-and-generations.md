@@ -13,10 +13,10 @@ Trace: "query"
   │    output: {intent: "decision", confidence: 0.87}
   │    latency: ~200ms
   │
-  ├─ Span: "hybrid_retrieval"
+  ├─ Span: "dense_retrieval"
   │    input: {query, collections, top_k}
-  │    output: [chunk_id, score] * 20
-  │    metadata: {dense_hits, sparse_hits, fused_count}
+  │    output: [chunk_id, dense_distance] * 20
+  │    metadata: {dense_hits}
   │    latency: ~50ms
   │
   ├─ Span: "reranking"

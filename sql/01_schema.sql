@@ -52,19 +52,20 @@ CREATE TABLE IF NOT EXISTS chunks (
 
 COMMENT ON TABLE chunks IS 'Vector store for data-platform-rag. Two collections (decisions/architecture) sharing one physical table. See ADR-002.';
 COMMENT ON COLUMN chunks.embedding IS 'bge-small-en-v1.5 dense embedding, 384 dims. HNSW-indexed.';
-COMMENT ON COLUMN chunks.content_tsv IS 'Generated tsvector for sparse (BM25-like) hybrid retrieval.';
+COMMENT ON COLUMN chunks.content_tsv IS 'Generated tsvector. Unused by retrieval since ADR-018 (dense-only); kept so a future sparse side needs no migration.';
 COMMENT ON COLUMN chunks.keywords IS
     'Noun phrases extracted at index time (regex + stop-word filter, no NER). Unused by v1 retrieval; reserved for a future keywords && ARRAY[...] pre-filter. NULL = not extracted, {} = extracted and empty.';
 
 -- ----------------------------------------------------------------------------
 -- On pg_trgm (enabled in sql/00_extensions.sql)
 -- ----------------------------------------------------------------------------
--- pg_trgm is NOT the sparse retrieval mechanism. Primary sparse retrieval is
--- to_tsvector + ts_rank_cd over chunks.content_tsv, fused with dense pgvector
--- results via reciprocal rank fusion, per ADR-003. pg_trgm is enabled only as a
+-- pg_trgm is NOT a sparse retrieval mechanism. Retrieval is dense-only since
+-- ADR-018; until then the sparse side was to_tsvector + ts_rank_cd over
+-- chunks.content_tsv, fused by reciprocal rank fusion (ADR-003, superseded).
+-- pg_trgm is enabled only as a
 -- backup for fuzzy matching (typo-tolerant lookups on identifiers such as
 -- 'ADR-0019' or table names), and nothing in the v1 retrieval path calls it.
--- Reaching for pg_trgm as the sparse half of hybrid retrieval would silently
+-- Reaching for pg_trgm as a sparse side, if one ever returns, would silently
 -- replace a ranked, language-aware scorer with trigram overlap. Do not.
 
 

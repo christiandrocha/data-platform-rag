@@ -1,4 +1,4 @@
-"""Hybrid search — dense (pgvector) + sparse (tsvector) fused by RRF.
+"""Dense search — pgvector cosine distance, exact, one ranked list (ADR-018).
 
 Implemented ADR-003's fusion of a dense and a sparse list until ADR-018, which
 ranks by cosine distance alone. The ranking happens in one query, not in Python.
@@ -37,8 +37,8 @@ VALID_COLLECTIONS: frozenset[str] = frozenset(get_args(Collection))
 
 # ADR-018: retrieval ranks by cosine distance alone. The sparse side and the
 # fusion were removed after two repairs were measured and rejected (ADR-015,
-# ADR-017), both on RRF's equal ballot. The names in this module still say
-# "hybrid"; they change only if ADR-018 is accepted (its Consequences).
+# ADR-017), both on RRF's equal ballot. This module was `hybrid_search.py` until
+# ADR-018 was accepted; superseded and rejected ADRs still use that name.
 #
 # Every column ChunkMetadata needs, plus the scores RetrievedChunk carries. The
 # contract is unchanged: `sparse_score` is 0.0 and `sparse_rank` NULL, which it
@@ -49,7 +49,7 @@ VALID_COLLECTIONS: frozenset[str] = frozenset(get_args(Collection))
 # The search is exact: every candidate's distance, then ORDER BY with an id
 # tiebreak. An HNSW index scan would be approximate and could reorder a ranking
 # with no change to the corpus (ADR-018, Decision).
-HYBRID_QUERY = """
+DENSE_QUERY = """
 WITH candidates AS (
   SELECT
     id, content, collection,
@@ -78,7 +78,7 @@ ORDER BY d.dense_rank ASC
 """
 
 
-def build_hybrid_query(collections: list[str]) -> str:
+def build_dense_query(collections: list[str]) -> str:
     """Validate the collection filter and return the query.
 
     The previous version accepted `collections` and ignored it. It is now
@@ -94,7 +94,7 @@ def build_hybrid_query(collections: list[str]) -> str:
             f"Unknown collection(s): {', '.join(unknown)}. "
             f"Valid: {', '.join(sorted(VALID_COLLECTIONS))}"
         )
-    return HYBRID_QUERY
+    return DENSE_QUERY
 
 
 def row_to_chunk(row: dict[str, Any]) -> RetrievedChunk:
@@ -145,7 +145,7 @@ def search(
     """
     from psycopg.rows import dict_row
 
-    query = build_hybrid_query(list(collections))
+    query = build_dense_query(list(collections))
     params = {
         "query_vector": list(query_vector),
         "collections": list(collections),

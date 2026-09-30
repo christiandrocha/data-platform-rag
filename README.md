@@ -159,9 +159,11 @@ checkout" had only ever been demonstrated on the author's machine.
 **What is next**, in dependency order — none of this exists yet:
 
 1. **Retrieval quality.** Retrieval runs (`make ask`, `make retrieval-recall`),
-   and two attempts to fix its top-3 order were measured and rejected:
-   OR-joined lexemes (ADR-015) and cross-encoder reranking (ADR-005). Next in
-   line: the embedding (ADR-004) and the golden set's anchors.
+   and three attempts to fix its top-3 order were measured and rejected:
+   OR-joined lexemes (ADR-015), cross-encoder reranking (ADR-005), and OR-joined
+   lexemes filtered by document frequency (ADR-017). The sparse half of hybrid
+   retrieval still returns rows for only 7 of 50 golden questions. Next in line:
+   an ADR on honest dense-only retrieval, then the embedding (ADR-004).
 2. **Reranking** (ADR-005) — rejected 2026-09-21; the setting is kept for a
    re-measurement when the golden set grows.
 3. **Generation.** The system prompt is versioned in `generation/prompt.py`.
@@ -186,6 +188,11 @@ checkout" had only ever been demonstrated on the author's machine.
   2026-09-21, having gone unnoticed while it failed at the first step. The
   `ci.yml` lint and test jobs are green and are the ones that mean something
   right now.
+- **"Hybrid retrieval" is dense-only for question-shaped input.** The sparse
+  side ANDs every term (`plainto_tsquery`), so it returns rows for 7 of 50 golden
+  questions. Two repairs were measured and rejected (ADR-015, ADR-017). The
+  diagrams above show the design, not what ranks today. An ADR on honest
+  dense-only retrieval is next.
 - **ADR-004 is still Planned, and it covers two things neither of which is
   done.** `bge-small-en-v1.5` is the *declared baseline*, chosen by argument and
   never benchmarked against an alternative. The HNSW parameters (`m = 16`,

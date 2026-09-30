@@ -122,3 +122,9 @@ populated. See the `retrieval` BUILD_REPORT for the measurement.
 
 Attempted in ADR-015 (OR-joined lexemes), rejected on 2026-09-21 by measurement;
 the sparse side remains inert for question-shaped input.
+
+Attempted again in ADR-017 (OR-joined lexemes minus those above a
+document-frequency cutoff), rejected on 2026-09-30 by measurement: k=3 rose one
+path, below the pre-registered margin of two, and q007's declared path left the
+top 3. The sparse side remains inert for question-shaped input (7 of 50 golden
+questions).

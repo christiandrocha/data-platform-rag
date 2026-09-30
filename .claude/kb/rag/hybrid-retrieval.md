@@ -46,6 +46,11 @@ Three details worth knowing before changing it:
   questions** (ADR-003 §B). It ANDs every term, and a question-shaped query
   matched 0 of 304 chunks for four of five golden questions. OR-joining was tried
   and rejected (ADR-015): recall did not move, q001 lost rank 1 to a tie.
+  OR-joining only the lexemes at or below a document-frequency cutoff (the chunk
+  count of the largest file, 68) was tried and rejected too (ADR-017): sparse rows
+  for 49/50 questions, but k=3 moved +1 against a margin of +2, and q007 lost its
+  top-3 path. Chunks ranked mid-list on both sides outscored a dense rank 1.
+  `make retrieval-recall baseline=FILE` prints the A1–A4 inputs for the next try.
 - **Both `ROW_NUMBER()` windows break ties by `id`.** Without the tiebreak a
   tied rank follows heap order and can change after a reindex. Found under
   ADR-015's OR query, where ties on `sparse_score` were common; kept after it.
@@ -67,7 +72,8 @@ Three details worth knowing before changing it:
 - **If the sparse side is ever populated for questions, out-of-scope questions
   look more confident, not less.** Under ADR-015's OR, q005's top score rose
   0.01639 → 0.02964: generic lexemes still match, so a second contribution
-  arrives. Any fallback threshold on `rrf_score` must be set knowing this
+  arrives. Filtering generic lexemes out did not help: under ADR-017's filter it
+  rose to 0.03252. Any fallback threshold on `rrf_score` must be set knowing this
   (ADR-005, ADR-006).
 
 Golden set should include both cases to keep the fusion honest.

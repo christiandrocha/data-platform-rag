@@ -10,7 +10,7 @@
 | Feature | sparse-df-filter |
 | Date | 2026-09-29 |
 | Author | christiandrocha (decisions), Claude (draft) |
-| Status | Approved for DESIGN (Q1, Q2 settled by the author on 2026-09-30, before any measurement) |
+| Status | Ready for Design (Q1, Q2 settled by the author on 2026-09-30, before any measurement) |
 | Clarity Score | 14/15 |
 | ADR | ADR-017 (to be written in DESIGN, Status Planned until BUILD's measurement) |
 | Brainstorm | [BRAINSTORM.md](BRAINSTORM.md), Option 1; author kept hybrid and chose the sparse side first |

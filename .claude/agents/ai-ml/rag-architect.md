@@ -25,4 +25,4 @@ When asked design questions:
 Load:
 @AGENTS.md
 @.claude/kb/rag/rag-architecture.md
-@.claude/kb/rag/hybrid-retrieval.md
+@.claude/kb/rag/dense-retrieval.md

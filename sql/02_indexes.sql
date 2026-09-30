@@ -24,7 +24,7 @@ COMMENT ON INDEX idx_chunks_embedding_hnsw IS
     'HNSW cosine similarity. Parameters justified in ADR-004. ef_search set per-session in retrieval code.';
 
 -- ============================================================================
--- GIN index on tsvector — sparse retrieval (BM25-like ranking via ts_rank_cd)
+-- GIN index on tsvector — unused by retrieval since ADR-018 (dense-only)
 -- ============================================================================
 -- GIN is optimal for tsvector queries. Trigger-based updates would let us drop
 -- the generated column, but generated STORED is cleaner and PG 12+ handles it well.
@@ -34,7 +34,7 @@ CREATE INDEX IF NOT EXISTS idx_chunks_content_tsv_gin
     USING gin (content_tsv);
 
 COMMENT ON INDEX idx_chunks_content_tsv_gin IS
-    'Sparse retrieval for hybrid search. Fused with dense scores via reciprocal rank fusion.';
+    'Unused by retrieval since ADR-018 (dense-only). Kept so a future sparse side needs no migration.';
 
 -- ============================================================================
 -- Metadata filter indexes

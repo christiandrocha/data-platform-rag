@@ -44,7 +44,7 @@ LIMIT 5;
 COMMIT;
 
 -- 5. Query plan baseline — the query retrieval actually runs
--- Mirrors HYBRID_QUERY in data_platform_rag/retrieval/hybrid_search.py with the
+-- Mirrors DENSE_QUERY in data_platform_rag/retrieval/dense_search.py with the
 -- parameters inlined: top_k = 20, rrf_k = 60, and the first chunk's embedding
 -- standing in for a query vector. If that constant changes, this section
 -- changes with it.

@@ -1,4 +1,4 @@
-"""Tests for the hybrid query and its mapping onto the contract.
+"""Tests for the dense query (ADR-018) and its mapping onto the contract.
 
 This file previously asserted `"embedding <=> $1::vector" in HYBRID_QUERY` — it
 pinned asyncpg placeholder syntax in a project that uses psycopg, so the only
@@ -12,10 +12,10 @@ from __future__ import annotations
 import pytest
 
 from data_platform_rag.contracts import RetrievedChunk
-from data_platform_rag.retrieval.hybrid_search import (
-    HYBRID_QUERY,
+from data_platform_rag.retrieval.dense_search import (
+    DENSE_QUERY,
     RRF_K,
-    build_hybrid_query,
+    build_dense_query,
     row_to_chunk,
 )
 
@@ -23,19 +23,19 @@ from data_platform_rag.retrieval.hybrid_search import (
 def test_query_uses_psycopg_placeholders_not_asyncpg() -> None:
     """The defect this file used to enshrine."""
     for asyncpg_placeholder in ("$1", "$2", "$3"):
-        assert asyncpg_placeholder not in HYBRID_QUERY
-    assert "%(query_vector)s" in HYBRID_QUERY
-    assert "%(collections)s" in HYBRID_QUERY
+        assert asyncpg_placeholder not in DENSE_QUERY
+    assert "%(query_vector)s" in DENSE_QUERY
+    assert "%(collections)s" in DENSE_QUERY
 
 
 def test_query_uses_pgvector_cosine() -> None:
-    assert "embedding <=> %(query_vector)s::vector" in HYBRID_QUERY
+    assert "embedding <=> %(query_vector)s::vector" in DENSE_QUERY
 
 
 @pytest.mark.parametrize("sparse", ["tsquery", "ts_rank_cd", "content_tsv", "%(query_text)s"])
 def test_query_has_no_sparse_side_and_takes_no_text(sparse: str) -> None:
     """ADR-018: cosine distance alone. No user text reaches SQL."""
-    assert sparse not in HYBRID_QUERY
+    assert sparse not in DENSE_QUERY
 
 
 @pytest.mark.parametrize(
@@ -44,19 +44,19 @@ def test_query_has_no_sparse_side_and_takes_no_text(sparse: str) -> None:
 )
 def test_query_selects_every_field_the_contract_requires(column: str) -> None:
     """ChunkMetadata cannot be built without these five. The query returned two."""
-    assert column in HYBRID_QUERY
+    assert column in DENSE_QUERY
 
 
 @pytest.mark.parametrize("column", ["source_anchor", "adr_id", "topic", "status", "keywords"])
 def test_query_carries_optional_metadata_too(column: str) -> None:
     """source_anchor is what makes a citation point at a section, not a whole ADR."""
-    assert column in HYBRID_QUERY
+    assert column in DENSE_QUERY
 
 
 def test_limit_comes_from_a_parameter_not_a_literal() -> None:
     """ADR-008 cannot tune what is hardcoded in SQL."""
-    assert "LIMIT 20" not in HYBRID_QUERY
-    assert HYBRID_QUERY.count("LIMIT %(top_k)s") == 1
+    assert "LIMIT 20" not in DENSE_QUERY
+    assert DENSE_QUERY.count("LIMIT %(top_k)s") == 1
 
 
 def test_rrf_score_is_the_dense_only_contribution() -> None:
@@ -64,39 +64,39 @@ def test_rrf_score_is_the_dense_only_contribution() -> None:
 
     No sentinel rank either (ADR-003 Amendment 1's 999 must not come back).
     """
-    assert "1.0 / (%(rrf_k)s + d.dense_rank) AS rrf_score" in HYBRID_QUERY
-    assert "999" not in HYBRID_QUERY
+    assert "1.0 / (%(rrf_k)s + d.dense_rank) AS rrf_score" in DENSE_QUERY
+    assert "999" not in DENSE_QUERY
 
 
 def test_the_sparse_fields_are_constant() -> None:
     """The contract keeps them; 0.0 and NULL already mean "the sparse side did not rank it"."""
-    assert "0.0 AS sparse_score" in HYBRID_QUERY
-    assert "NULL::bigint AS sparse_rank" in HYBRID_QUERY
+    assert "0.0 AS sparse_score" in DENSE_QUERY
+    assert "NULL::bigint AS sparse_rank" in DENSE_QUERY
 
 
 def test_ordering_is_deterministic() -> None:
     """The final order is the dense rank, which already carries the id tiebreak."""
-    assert "ORDER BY d.dense_rank ASC" in HYBRID_QUERY
+    assert "ORDER BY d.dense_rank ASC" in DENSE_QUERY
 
 
 def test_rrf_constant_matches_adr_003() -> None:
     assert RRF_K == 60
 
 
-def test_build_hybrid_query_rejects_empty_collections() -> None:
+def test_build_dense_query_rejects_empty_collections() -> None:
     with pytest.raises(ValueError, match="At least one collection"):
-        build_hybrid_query([])
+        build_dense_query([])
 
 
-def test_build_hybrid_query_rejects_unknown_collection() -> None:
+def test_build_dense_query_rejects_unknown_collection() -> None:
     """An unknown name would filter to nothing and look like 'no matches'."""
     with pytest.raises(ValueError, match="Unknown collection"):
-        build_hybrid_query(["decisions", "adrs"])
+        build_dense_query(["decisions", "adrs"])
 
 
-def test_build_hybrid_query_accepts_valid_collections() -> None:
-    assert build_hybrid_query(["decisions"]) == HYBRID_QUERY
-    assert build_hybrid_query(["decisions", "architecture"]) == HYBRID_QUERY
+def test_build_dense_query_accepts_valid_collections() -> None:
+    assert build_dense_query(["decisions"]) == DENSE_QUERY
+    assert build_dense_query(["decisions", "architecture"]) == DENSE_QUERY
 
 
 # ─── row → contract ──────────────────────────────────────────────────────────
@@ -161,12 +161,12 @@ def test_the_dense_ranking_breaks_ties_by_id() -> None:
     Found under ADR-015's OR query on the sparse side; kept for the dense side,
     which is now the only one.
     """
-    assert "ROW_NUMBER() OVER (ORDER BY dense_dist ASC, id ASC)" in HYBRID_QUERY
-    assert "ORDER BY dense_dist ASC, id ASC\n  LIMIT" in HYBRID_QUERY
+    assert "ROW_NUMBER() OVER (ORDER BY dense_dist ASC, id ASC)" in DENSE_QUERY
+    assert "ORDER BY dense_dist ASC, id ASC\n  LIMIT" in DENSE_QUERY
 
 
 def test_the_search_is_exact_not_an_index_scan() -> None:
     """A window over every candidate: exact kNN, so rankings are reproducible (ADR-018)."""
-    candidates, _, _ = HYBRID_QUERY.partition("dense_ranked AS (")
+    candidates, _, _ = DENSE_QUERY.partition("dense_ranked AS (")
     assert "embedding <=> %(query_vector)s::vector AS dense_dist" in candidates
     assert "ORDER BY" not in candidates

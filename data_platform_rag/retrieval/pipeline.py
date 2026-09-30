@@ -15,7 +15,7 @@ from data_platform_rag.config import get_settings
 from data_platform_rag.contracts import Collection, RetrievedChunk
 from data_platform_rag.indexer.embedder import embed_query
 from data_platform_rag.indexer.writer import connect
-from data_platform_rag.retrieval.hybrid_search import build_hybrid_query, search
+from data_platform_rag.retrieval.dense_search import build_dense_query, search
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     import psycopg
@@ -52,7 +52,7 @@ def retrieve(
     # opened. `search` validates too -- it is the boundary that must not be
     # bypassed -- but leaving it only there means an unknown collection name
     # costs an embedding call and then surfaces from inside the database layer.
-    build_hybrid_query(list(collections))
+    build_dense_query(list(collections))
 
     settings = get_settings()
     effective_top_k = settings.hybrid_top_k if top_k is None else top_k

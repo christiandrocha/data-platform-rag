@@ -9,7 +9,9 @@
 
 - **Language**: Python 3.11+
 - **Vector store**: PostgreSQL 16 + pgvector 0.7+ (HNSW indexes with tuned parameters)
-- **Sparse search**: PostgreSQL full-text search (GIN + tsvector) for hybrid retrieval
+- **Retrieval**: dense only, pgvector cosine distance, exact scan (ADR-018). The
+  sparse side was removed after two repairs were measured and rejected (ADR-015,
+  ADR-017). `content_tsv` and its GIN index stay in the schema, unused
 - **Embedding**: `bge-small-en-v1.5` via sentence-transformers (384-dim, local)
 - **Reranker**: none in the pipeline. ADR-005 measured two local cross-encoders over
   the RRF top 20 and rejected both (2026-09-21); `settings.reranker_model` keeps a
@@ -75,7 +77,7 @@ data-platform-rag/
 │   ├── config.py               # pydantic-settings — all env-derived config
 │   ├── contracts.py            # pydantic models for all inter-module boundaries
 │   ├── indexer/                # loader, chunker, embedder, writer
-│   ├── retrieval/              # intent_classifier, hybrid_search, reranker, pipeline
+│   ├── retrieval/              # dense_search, pipeline (intent_classifier, reranker: not built)
 │   ├── generation/             # prompt, client, fallback logic
 │   ├── observability/          # langfuse_client, decorators, no-op fallback
 │   ├── evaluation/             # ragas_runner, golden_set_loader, langfuse_scorer
@@ -107,8 +109,10 @@ data-platform-rag/
   `ef_search`) tuned against the golden set, documented in the ADR.
 - Index recreation is scripted (`sql/02_indexes.sql`) and versioned. No
   ad-hoc `CREATE INDEX` in migrations.
-- Hybrid retrieval combines dense (pgvector cosine) + sparse (GIN tsvector)
-  via reciprocal rank fusion. Weights are RAGAS-tuned, not guessed.
+- Retrieval is dense-only (ADR-018): an exact cosine-distance scan with an `id`
+  tiebreak. Any change to retrieval is measured with `make retrieval-recall
+  baseline=FILE` against a decision rule fixed in its ADR before measuring.
+  A sparse side returns only with a weight RAGAS can tune, never guessed.
 - Query plans are inspected. `EXPLAIN ANALYZE` output for the top query
   patterns lives in `sql/99_verify.sql` as regression baseline.
 

@@ -184,6 +184,41 @@ class RetrievedChunk(BaseModel):
     sparse_rank: int | None = Field(default=None, ge=1)
 
 
+class SparseTerm(BaseModel):
+    """One lexeme of the query, with its document frequency in the live index.
+
+    `term` keeps Postgres' tsquery quoting (`'snowpip'`). Unquoting it would take
+    a second, hand-written escaper, and this field exists to be traced, not parsed.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    term: str = Field(min_length=1)
+    df: int = Field(ge=0)
+    kept: bool
+
+
+class SparseTerms(BaseModel):
+    """What the ADR-017 filter did to one query.
+
+    `cutoff` is the chunk count of the largest single source file. It is None
+    only when the index is empty, where there is no file to measure.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    cutoff: int | None = Field(default=None, ge=0)
+    terms: list[SparseTerm]
+
+    @property
+    def kept(self) -> list[SparseTerm]:
+        return [t for t in self.terms if t.kept]
+
+    @property
+    def dropped(self) -> list[SparseTerm]:
+        return [t for t in self.terms if not t.kept]
+
+
 class RerankedChunk(RetrievedChunk):
     """RetrievedChunk augmented with cross-encoder rerank score."""
 

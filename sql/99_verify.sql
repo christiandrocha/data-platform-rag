@@ -49,26 +49,42 @@ COMMIT;
 -- chunk's embedding standing in for a query vector. If that constant changes,
 -- this section changes with it.
 --
--- It uses neither index, and that is expected, not a fault. At 304 rows the dense
--- side is a Seq Scan (see section 4), and the sparse side has no `@@` predicate
--- for the GIN index to serve: ts_rank_cd is computed for every candidate before
--- either list is limited (known gap, recorded in ADR-015 Consequences).
+-- The dense side uses no index, and that is expected: at 304 rows it is a Seq
+-- Scan (see section 4). The sparse side's filter (ADR-017) is where the GIN index
+-- now works: `term_df` runs one `content_tsv @@ term` count per query lexeme, which
+-- should show `Bitmap Index Scan on idx_chunks_content_tsv_gin`. ts_rank_cd itself
+-- is still computed for every candidate before either list is limited (known gap,
+-- recorded in ADR-015 Consequences).
 --
--- What to check: the plan shape, not the row count. For this question the sparse
--- side reports rows=0 with `Rows Removed by Filter: 304`, because plain
--- plainto_tsquery ANDs every term. That is the known defect recorded in ADR-003
--- Amendment 1 §B, left open after ADR-015 was rejected -- an observation, not
--- the desired state.
+-- What to check: the plan shape, and that `sparse_query` is evaluated once
+-- (an InitPlan), not per candidate row.
 EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
-WITH q AS (
-  SELECT (SELECT embedding FROM chunks ORDER BY id LIMIT 1) AS v,
+WITH query_terms AS (
+  SELECT DISTINCT term
+  FROM regexp_split_to_table(
          plainto_tsquery('english',
            'Why does the Databricks project use one unified Lakeflow pipeline '
-           'instead of many parametrized notebooks?') AS t
+           'instead of many parametrized notebooks?')::text, ' & ') AS term
+  WHERE term <> ''
+),
+df_cutoff AS (
+  SELECT max(file_chunks) AS max_file_chunks
+  FROM (SELECT count(*) AS file_chunks FROM chunks GROUP BY source_project, source_path) AS per_file
+),
+term_df AS (
+  SELECT t.term, (SELECT count(*) FROM chunks WHERE content_tsv @@ t.term::tsquery) AS df
+  FROM query_terms t
+),
+sparse_query AS (
+  SELECT string_agg(term, ' | ' ORDER BY term)::tsquery AS tsq
+  FROM term_df, df_cutoff
+  WHERE df <= max_file_chunks
 ),
 candidates AS (
-  SELECT c.id, c.embedding <=> q.v AS dense_dist, ts_rank_cd(c.content_tsv, q.t) AS sparse_score
-  FROM chunks c, q
+  SELECT c.id,
+         c.embedding <=> (SELECT embedding FROM chunks ORDER BY id LIMIT 1) AS dense_dist,
+         COALESCE(ts_rank_cd(c.content_tsv, (SELECT tsq FROM sparse_query)), 0) AS sparse_score
+  FROM chunks c
   WHERE c.collection = ANY('{decisions,architecture}'::text[])
 ),
 dense_ranked AS (

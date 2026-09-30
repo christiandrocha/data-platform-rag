@@ -19,6 +19,15 @@ correctly retrieving nothing is not a recall event. Their top fused score is
 recorded anyway, because ADR-006's `fallback_threshold` is currently an
 undefended 0.35 and this is the evidence it needs.
 
+Per question, the artifact also records what ADR-017's document-frequency
+filter kept and dropped, and whether the sparse side ranked anything, so a
+change in recall can be traced to the filter rather than inferred.
+
+`--baseline FILE` prints the four numbers ADR-017's decision rule reads (A1-A4)
+against an earlier artifact. It prints numbers, not a verdict: the rule lives in
+the ADR, and code that re-implemented it could drift from it. It refuses to
+compare artifacts measured on a different snapshot, model or golden set.
+
 Writes a timestamped JSON artifact. Deliberately not a CI gate: see ADR-014 s4.
 """
 
@@ -34,6 +43,7 @@ import yaml
 
 from data_platform_rag.config import get_settings
 from data_platform_rag.indexer.writer import connect, current_snapshots
+from data_platform_rag.retrieval.hybrid_search import sparse_terms
 from data_platform_rag.retrieval.pipeline import retrieve
 
 GOLDEN_SET = Path("docs/golden-set/evaluation_questions.yml")
@@ -49,7 +59,18 @@ def load_questions() -> list[dict]:
     return questions
 
 
-def evaluate(question: dict, max_k: int) -> dict:
+def has_sparse_rows(ranking: list[dict]) -> bool:
+    """Whether the sparse side ranked any chunk that reached the fused top k.
+
+    The same test the 2026-09-29 before-reading was counted with (7/50), kept so
+    the two readings count alike. It misses a non-empty sparse list only if its
+    rank-1 chunk is pushed out of the fused top 20, which undercounts: A4 gets
+    harder to pass, never easier.
+    """
+    return any(row["sparse_rank"] is not None for row in ranking)
+
+
+def evaluate(question: dict, max_k: int, conn=None) -> dict:
     """Retrieve once at max_k and read every k off the same ranking.
 
     One retrieval per question, not one per k: the top 3 is a prefix of the top
@@ -57,7 +78,7 @@ def evaluate(question: dict, max_k: int) -> dict:
     same answer -- and would not even be guaranteed identical if anything about
     retrieval were non-deterministic.
     """
-    chunks = retrieve(question["question"], top_k=max_k)
+    chunks = retrieve(question["question"], top_k=max_k, conn=conn)
     ranking = [
         {
             "rank": position,
@@ -86,15 +107,24 @@ def evaluate(question: dict, max_k: int) -> dict:
         for k in K_VALUES
     }
 
-    return {
+    result = {
         "id": question["id"],
         "intent": question["intent"],
         "question": question["question"],
         "declared_paths": [f"{p}/{q}" for p, q in declared],
         "top_rrf_score": ranking[0]["rrf_score"] if ranking else None,
+        "has_sparse_rows": has_sparse_rows(ranking),
         "retrieved_at_k": hits,
         "ranking": ranking,
     }
+    if conn is not None:
+        report = sparse_terms(conn, question["question"])
+        result["sparse_terms"] = {
+            "cutoff": report.cutoff,
+            "kept": [[t.term, t.df] for t in report.kept],
+            "dropped": [[t.term, t.df] for t in report.dropped],
+        }
+    return result
 
 
 def summarise(results: list[dict]) -> dict:
@@ -117,10 +147,62 @@ def summarise(results: list[dict]) -> dict:
             "recall": round(found / denominator, 4) if denominator else None,
         }
     return {
+        "questions": len(results),
+        "questions_with_sparse_rows": sum(1 for r in results if has_sparse_rows(r["ranking"])),
         "questions_in_scope": len(in_scope),
         "declared_paths": denominator,
         "source_recall_at_k": recall,
         "top_rrf_scores": {r["id"]: r["top_rrf_score"] for r in results},
+    }
+
+
+def comparability_problems(baseline: dict, snapshot: dict, results: list[dict]) -> list[str]:
+    """Why two artifacts cannot be compared; empty when they can.
+
+    A before-reading is never quoted across states (DEFINE): a different commit,
+    embedding model or golden set makes the delta measure the change of state,
+    not the change of retrieval.
+    """
+    problems = []
+    if baseline.get("snapshot") != snapshot:
+        problems.append(
+            f"snapshot differs: baseline {baseline.get('snapshot')} vs now {snapshot}"
+        )
+    before = {r["id"]: r["declared_paths"] for r in baseline.get("results", [])}
+    now = {r["id"]: r["declared_paths"] for r in results}
+    if before != now:
+        changed = sorted(
+            qid for qid in before.keys() | now.keys() if before.get(qid) != now.get(qid)
+        )
+        problems.append(f"golden set differs (question ids or declared paths): {changed}")
+    return problems
+
+
+def top3_paths(results: list[dict]) -> set[tuple[str, str]]:
+    """Every (question, declared path) found in the top 3."""
+    return {
+        (r["id"], path)
+        for r in results
+        for path, rank in r["retrieved_at_k"]["3"].items()
+        if rank is not None
+    }
+
+
+def baseline_deltas(baseline: dict, results: list[dict], summary: dict) -> dict:
+    """The four inputs of ADR-017's decision rule, before and after. No verdict."""
+    before_recall = baseline["summary"]["source_recall_at_k"]
+    now_recall = summary["source_recall_at_k"]
+    return {
+        "declared": now_recall["3"]["declared"],
+        "k3": (before_recall["3"]["found"], now_recall["3"]["found"]),
+        "lost_top3": sorted(top3_paths(baseline["results"]) - top3_paths(results)),
+        "k10": (before_recall["10"]["found"], now_recall["10"]["found"]),
+        "k20": (before_recall["20"]["found"], now_recall["20"]["found"]),
+        "sparse_rows": (
+            sum(1 for r in baseline["results"] if has_sparse_rows(r["ranking"])),
+            summary["questions_with_sparse_rows"],
+        ),
+        "questions": summary["questions"],
     }
 
 
@@ -141,13 +223,33 @@ def indexed_snapshot() -> dict[str, dict[str, str]]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--no-write", action="store_true", help="Print only; write no artifact.")
+    parser.add_argument(
+        "--baseline",
+        type=Path,
+        help="An earlier artifact: print the A1-A4 inputs of ADR-017's rule against it.",
+    )
     args = parser.parse_args()
 
     questions = load_questions()
     max_k = max(K_VALUES)
-    results = [evaluate(q, max_k) for q in questions]
+    with connect(str(get_settings().database_url)) as conn:
+        results = [evaluate(q, max_k, conn) for q in questions]
     summary = summarise(results)
     snapshot = indexed_snapshot()
+
+    baseline = None
+    if args.baseline:
+        baseline = json.loads(args.baseline.read_text())
+        problems = comparability_problems(baseline, snapshot, results)
+        if problems:
+            for problem in problems:
+                print(f"ERROR: {problem}", file=sys.stderr)
+            print(
+                f"ERROR: {args.baseline} is not comparable. Retake the before-reading "
+                "on the current state instead of quoting it across states.",
+                file=sys.stderr,
+            )
+            return 1
 
     print("Indexed snapshot (ADR-013):")
     for project, row in snapshot.items():
@@ -160,6 +262,11 @@ def main() -> int:
         row = summary["source_recall_at_k"][str(k)]
         pct = f"{row['recall']:.0%}" if row["recall"] is not None else "n/a"
         print(f"  k={k:<3} {row['found']}/{row['declared']}  ({pct})")
+
+    print(
+        f"\n  questions with sparse rows: "
+        f"{summary['questions_with_sparse_rows']}/{summary['questions']}"
+    )
 
     print("\nPer question:")
     for result in results:
@@ -180,6 +287,19 @@ def main() -> int:
         shown = f"{score:.5f}" if score is not None else "no chunks"
         print(f"  {qid}  {shown}")
 
+    if baseline is not None:
+        d = baseline_deltas(baseline, results, summary)
+        print(f"\nAgainst {args.baseline} (ADR-017 decision-rule inputs, no verdict):")
+        print(f"  A1  k=3 found:   {d['k3'][0]} -> {d['k3'][1]} /{d['declared']}  "
+              f"({d['k3'][1] - d['k3'][0]:+d})")
+        print(f"  A2  top-3 paths lost: {len(d['lost_top3'])}")
+        for qid, path in d["lost_top3"]:
+            print(f"        {qid}  {path}")
+        print(f"  A3  k=10 found:  {d['k10'][0]} -> {d['k10'][1]} /{d['declared']}")
+        print(f"      k=20 found:  {d['k20'][0]} -> {d['k20'][1]} /{d['declared']}")
+        print(f"  A4  questions with sparse rows: {d['sparse_rows'][0]} -> "
+              f"{d['sparse_rows'][1]} /{d['questions']}")
+
     if args.no_write:
         return 0
 
@@ -191,6 +311,7 @@ def main() -> int:
             {
                 "generated_at": datetime.now(UTC).isoformat(),
                 "snapshot": snapshot,
+                "baseline": str(args.baseline) if args.baseline else None,
                 "summary": summary,
                 "results": results,
             },

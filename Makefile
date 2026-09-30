@@ -124,8 +124,9 @@ ask:
 
 # ADR-014: source recall at k over the golden set. The project's retrieval metric
 # until RAGAS exists. Writes .claude/dev/reports/retrieval-recall-{timestamp}.json
+# baseline=FILE prints ADR-017's A1-A4 inputs against an earlier artifact.
 retrieval-recall:
-	$(PYTHON) scripts/retrieval_recall.py
+	$(PYTHON) scripts/retrieval_recall.py $(if $(baseline),--baseline $(baseline))
 
 verify-indexes:
 	$(COMPOSE) exec -T postgres psql -U dpr -d data_platform_rag -f - < sql/99_verify.sql

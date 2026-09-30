@@ -23,5 +23,6 @@ Reversals are documented in-place; superseded ADRs stay in the record.
 | ADR-015 | OR-joined lexemes for the sparse side of hybrid retrieval | Rejected | 2026-09-21 |
 | ADR-016 | Extend retreat A3 to comparison and out-of-scope questions | Accepted | 2026-09-28 |
 | ADR-017 | Document-frequency-filtered OR for the sparse side of hybrid retrieval | Rejected | 2026-09-30 |
+| ADR-018 | Dense-only retrieval | Planned | — |
 
 **Legend**: Accepted (implemented as decided) · Planned (decision pending BUILD phase) · Rejected (measured and not adopted; kept as record) · Superseded · Resolved.

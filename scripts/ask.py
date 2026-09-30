@@ -7,6 +7,10 @@ retrieves the ADR it was anchored to -- the feedback loop this feature is for.
 Two views. The default is one line per chunk: rank, the three scores, and the
 citation with its section anchor, which answers "did my anchor come back, and
 where". `--full` adds the chunk text, which answers "why did this rank".
+
+A line under the question shows what ADR-017's document-frequency filter kept and
+dropped, with each lexeme's chunk count, so a sparse score can be traced to the
+lexemes that produced it.
 """
 
 from __future__ import annotations
@@ -14,7 +18,10 @@ from __future__ import annotations
 import argparse
 import sys
 
-from data_platform_rag.contracts import Collection, RetrievedChunk
+from data_platform_rag.config import get_settings
+from data_platform_rag.contracts import Collection, RetrievedChunk, SparseTerms
+from data_platform_rag.indexer.writer import connect
+from data_platform_rag.retrieval.hybrid_search import sparse_terms
 from data_platform_rag.retrieval.pipeline import retrieve
 
 PREVIEW_CHARS = 96
@@ -56,6 +63,17 @@ def render(chunks: list[RetrievedChunk], *, full: bool) -> str:
     return "\n".join(lines)
 
 
+def render_terms(report: SparseTerms) -> str:
+    """One line: the cutoff, then kept and dropped lexemes with their chunk counts."""
+    def listed(terms) -> str:
+        return " ".join(f"{t.term}({t.df})" for t in terms) or "none"
+
+    return (
+        f"   sparse terms (cutoff {report.cutoff}): "
+        f"kept {listed(report.kept)} · dropped {listed(report.dropped)}"
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("question", nargs="*", help="The question to ask.")
@@ -80,14 +98,17 @@ def main() -> int:
         collections = [c.strip() for c in args.collections.split(",") if c.strip()]  # type: ignore[misc]
 
     try:
-        chunks = retrieve(question, collections=collections, top_k=args.top_k)
+        with connect(str(get_settings().database_url)) as conn:
+            chunks = retrieve(question, collections=collections, top_k=args.top_k, conn=conn)
+            report = sparse_terms(conn, question)
     except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 
     print(f"Q: {question}")
     searched = ", ".join(collections) if collections else "both collections"
-    print(f"   ({searched})\n")
+    print(f"   ({searched})")
+    print(render_terms(report) + "\n")
     print(render(chunks, full=args.full))
     if not chunks:
         print("\n  Nothing matched. Is the index populated? `make index-corpus`.")

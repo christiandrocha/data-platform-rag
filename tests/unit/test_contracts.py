@@ -17,6 +17,8 @@ from data_platform_rag.contracts import (
     RAGASReport,
     RerankedChunk,
     RetrievedChunk,
+    SparseTerm,
+    SparseTerms,
 )
 
 # ─── ChunkMetadata ───────────────────────────────────────────────────────────
@@ -256,3 +258,38 @@ def test_index_run_report_defaults_to_nothing_done():
     assert report.written == []
     assert report.skipped == []
     assert report.chunks_written == 0
+
+
+# ─── SparseTerms (ADR-017) ───────────────────────────────────────────────────
+
+
+def test_sparse_terms_split_kept_from_dropped():
+    report = SparseTerms(
+        cutoff=68,
+        terms=[
+            SparseTerm(term="'stream'", df=72, kept=False),
+            SparseTerm(term="'snowpip'", df=19, kept=True),
+        ],
+    )
+    assert [t.term for t in report.kept] == ["'snowpip'"]
+    assert [t.term for t in report.dropped] == ["'stream'"]
+
+
+def test_sparse_term_rejects_a_negative_df():
+    with pytest.raises(ValidationError):
+        SparseTerm(term="'x'", df=-1, kept=True)
+
+
+def test_sparse_term_rejects_an_empty_term():
+    with pytest.raises(ValidationError):
+        SparseTerm(term="", df=0, kept=False)
+
+
+def test_sparse_terms_is_frozen():
+    report = SparseTerms(cutoff=1, terms=[])
+    with pytest.raises(ValidationError):
+        report.cutoff = 2
+
+
+def test_sparse_terms_allows_no_cutoff_for_an_empty_index():
+    assert SparseTerms(terms=[]).cutoff is None

@@ -16,7 +16,9 @@ locality becomes a requirement.
 ## Design principles
 
 1. **One trace per user query.** Root span = whole pipeline. Child spans =
-   intent classification, retrieval, reranking, generation.
+   intent classification, retrieval, generation. No reranking span (ADR-005
+   rejected the reranker) and no threshold span (ADR-019 superseded the score
+   gate; the fallback is decided inside the generation).
 2. **Scores land on traces.** RAGAS metrics push to the trace that produced
    the query, so we can slice quality by any trace metadata.
 3. **Never block on Langfuse.** Failures to flush must not break the query

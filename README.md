@@ -180,8 +180,12 @@ checkout" had only ever been demonstrated on the author's machine.
 - **No answer-quality number exists, because nothing answers yet.** The RAGAS
   badges read `pending` and will keep reading it until `make eval-ci` has run.
   No number here comes from an estimate.
-- **The golden set holds 5 of 50 questions.** Any metric computed today would be
-  measured against a tenth of its intended sample.
+- **The golden set is complete at 50 questions, but thin where it matters
+  next.** It has 22 decision, 18 architecture, 5 comparison and 5 out-of-scope
+  questions. That is enough for source recall (57 declared paths, ADR-014). It is
+  thin for the fallback, which ADR-019 moved onto the LLM: 5 negatives cannot
+  calibrate or verify much, so measuring rule 3 will need more out-of-scope
+  questions than the golden set holds.
 - **`ragas.yml` runs on demand only, because it has nothing to evaluate.**
   `scripts/run_evaluation.py` is a stub until step 7 above lands, so the push
   trigger was removed rather than left to produce a signal that means nothing

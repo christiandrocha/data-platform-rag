@@ -1,7 +1,16 @@
 # ADR-006 — Out-of-scope fallback message
 
-**Status**: Accepted
+**Status**: Accepted, score gate superseded by [ADR-019](ADR-019-similarity-separability-decides-the-fallback-gate.md) — 2026-09-30
 **Date**: 2026-09-10
+
+> Superseded in part, not rewritten. The fallback message and the product
+> decision behind it stand. The *score gate* (below "0.35 cosine", do not call the
+> LLM) does not: ADR-019 measured top-1 cosine similarity over the golden set, and
+> it does not separate in-scope from out-of-scope questions. The highest
+> out-of-scope question (0.7360) outscores 14 of the 45 in-scope ones. Out-of-scope
+> questions now get this message from the LLM, under the system prompt's rule 3,
+> which this ADR's third alternative considered. The text below is the decision as
+> it was taken.
 
 ## Context
 

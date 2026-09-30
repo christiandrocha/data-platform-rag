@@ -1,10 +1,11 @@
 # ADR-019 — Cosine-similarity separability decides the out-of-scope gate
 
-**Status**: Planned — the fork below decides which branch, applied once to BUILD's first reading
+**Status**: Accepted — 2026-09-30. Branch taken: **not separable**. See [Outcome](#outcome)
 **Date**: 2026-09-30
+**Supersedes in part**: ADR-006 (its score gate; the fallback itself stays)
 
 > Written before any similarity was measured. The Context, Decision and
-> Consequences sections will be kept exactly as written when the Outcome is
+> Consequences sections are kept exactly as written before the Outcome was
 > added. They are the prediction the outcome is judged against, as in ADR-015,
 > ADR-017 and ADR-018. Unlike those, this ADR is Accepted whichever way the
 > measurement goes: what it decides is the *method*, and the Outcome records which
@@ -126,4 +127,64 @@ nothing to stand on with 5 negatives.
 
 ## Outcome
 
-*Pending BUILD's measurement.*
+**Not separable. ADR-006's score gate is superseded. Out of scope is rule 3's
+job.** Measured on 2026-09-30 on snapshot `sdd-kafka-databricks@f1295df9`,
+`sdd-kafka-snowflake-2@82a2e269`, `BAAI/bge-small-en-v1.5`, golden set
+q001–q050: `.claude/dev/reports/retrieval-recall-20260930-185210.json` and
+`-185224.json`, two runs, identical results. Code measured: commit
+`feat(eval): top-1 similarity separability in the recall report (ADR-019,
+pre-measurement)`. The fork was checked byte-identical to DEFINE's immediately
+before the first run.
+
+| | value | question |
+|---|---|---|
+| lowest in-scope top similarity | 0.6040 | q027 (architecture) |
+| highest out-of-scope top similarity | **0.7360** | q005 |
+| in-scope questions at or below 0.7360 | **14** of 45 | |
+| out-of-scope questions at or above 0.6040 | **4** of 5 | |
+
+Out of scope, by top similarity: q050 0.5628 (prompt extraction), q049 0.6228
+(React frontends), q048 0.6519 (Apache Iceberg), q047 0.7194 (why not Airflow),
+q005 0.7360 (Flink versus Kafka Streams). The lowest in-scope ones: q027 0.6040,
+q046 0.6292 (comparison), q031 0.6387, q029 0.6393, q044 0.6483 (comparison),
+q035 0.6748. The highest in-scope top similarity is 0.9005.
+
+Retrieval did not move. Against the ADR-018 artifact
+(`retrieval-recall-20260930-182208.json`), k=3/10/20 were 38/44/46, no top-3
+path was lost, and all 50 rankings were identical.
+
+**Only one out-of-scope question sits below every in-scope one:** q050, the
+prompt-extraction probe, the question least like the corpus in subject. Every
+question that asks about a real data-engineering topic the corpus does not cover
+(Flink, Airflow, Iceberg) scores like an in-scope question, because the corpus is
+about neighbouring topics. No threshold on this number separates "about Kafka
+Streams" from "about Kafka". Any cut that rejects q005 also rejects 14 in-scope
+questions, about a third of the set, and any cut that keeps every in-scope
+question lets 4 of the 5 out-of-scope questions through.
+
+**The predictions, checked:**
+
+- *P1, not separable*: **right.**
+- *P2, at least 2 of the 5 out-of-scope questions at or above the lowest in-scope
+  one*: **right**, 4.
+- *P3, q005 has the lowest top similarity of the 5*: **wrong, and inverted.** q005
+  has the *highest* (0.7360). It asks about stream-processing engines next to a
+  corpus about Kafka pipelines. The prediction assumed the oldest, least
+  adversarial question would be the easiest to reject. Similarity measures topic
+  proximity, not answerability.
+
+**What follows, per the fork:**
+
+- ADR-006 is superseded in part, in place: its score gate goes, and its fallback
+  message and product decision stay. AGENTS.md forbids removing the fallback, and
+  the fallback does not leave. What changes is who sends it: the LLM, under the
+  system prompt's rule 3.
+- AGENTS.md's RAG-discipline line, the README's architecture text and diagrams,
+  and the KB pages that describe a `threshold_check` are rewritten to match.
+- **`settings.fallback_threshold` stays until the ADR-019 follow-up removes it**
+  (DEFINE). Nothing reads it, and removing a setting is an interface change of its
+  own. It is marked unused.
+- **The cost ADR-006 feared is now the thing to measure.** Every out-of-scope
+  query reaches the LLM, so it spends tokens and the LLM may fabricate under weak
+  context. `make eval`'s `fallback_accuracy` (in `RAGASAggregate`) is the number.
+  It cannot run until generation exists and an API key is configured.

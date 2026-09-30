@@ -24,12 +24,7 @@ Trace: "query"
   │    output: top 3 with reranker scores
   │    latency: ~150ms
   │
-  ├─ Span: "threshold_check"
-  │    input: top_1_score
-  │    output: {fallback_fired: bool}
-  │    latency: <1ms
-  │
-  └─ Generation: "anthropic_call" (only if fallback not fired)
+  └─ Generation: "anthropic_call" (every query; no score gate since ADR-019)
        model: claude-sonnet-4-6
        input: {system_prompt, context, query}
        output: generated answer

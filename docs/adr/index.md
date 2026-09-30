@@ -11,7 +11,7 @@ Reversals are documented in-place; superseded ADRs stay in the record.
 | ADR-003 | Hybrid retrieval — dense + sparse via reciprocal rank fusion | Superseded by ADR-018 | 2026-09-30 |
 | ADR-004 | Embedding model selection and HNSW parameter tuning | Planned | — |
 | ADR-005 | Cross-encoder reranking of the RRF top 20 | Rejected | 2026-09-21 |
-| ADR-006 | Out-of-scope fallback message design | Accepted | 2026-09-10 |
+| ADR-006 | Out-of-scope fallback message design | Accepted; score gate superseded by ADR-019 | 2026-09-30 |
 | ADR-007 | Chunking strategy per source type | Accepted | 2026-09-14 |
 | ADR-008 | RAGAS in CI with regression threshold | Planned | — |
 | ADR-009 | Langfuse for LLM observability | Accepted | 2026-09-10 |
@@ -24,6 +24,6 @@ Reversals are documented in-place; superseded ADRs stay in the record.
 | ADR-016 | Extend retreat A3 to comparison and out-of-scope questions | Accepted | 2026-09-28 |
 | ADR-017 | Document-frequency-filtered OR for the sparse side of hybrid retrieval | Rejected | 2026-09-30 |
 | ADR-018 | Dense-only retrieval | Accepted | 2026-09-30 |
-| ADR-019 | Cosine-similarity separability decides the out-of-scope gate | Planned | — |
+| ADR-019 | Cosine-similarity separability decides the out-of-scope gate | Accepted (not separable) | 2026-09-30 |
 
 **Legend**: Accepted (implemented as decided) · Planned (decision pending BUILD phase) · Rejected (measured and not adopted; kept as record) · Superseded · Resolved.

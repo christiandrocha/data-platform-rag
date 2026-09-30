@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     # Retrieval
     hybrid_top_k: int = Field(default=20, ge=1, le=100)
     rerank_top_k: int = Field(default=3, ge=1, le=20)
+    # Unused: ADR-019 measured that no cosine threshold separates in-scope from
+    # out-of-scope questions, and superseded ADR-006's score gate. Removed in the
+    # ADR-019 follow-up; nothing may start reading it.
     fallback_threshold: float = Field(default=0.35, ge=0.0, le=1.0)
     hnsw_ef_search: int = Field(default=40, ge=10, le=500)
 

@@ -138,9 +138,11 @@ data-platform-rag/
 
 ### RAG discipline
 
-- Never return an answer without at least one retrieved chunk citation. If
-  retrieval score falls below threshold, use the fixed fallback message
-  pointing to LinkedIn.
+- Never return an answer without at least one retrieved chunk citation.
+  Out-of-scope questions get the fixed fallback message pointing to LinkedIn,
+  sent by the LLM under the system prompt's rule 3. There is no retrieval-score
+  gate: ADR-019 measured that cosine similarity does not separate in-scope from
+  out-of-scope questions.
 - The system prompt is versioned in `data_platform_rag/generation/prompt.py`, not
   scattered in code.
 - Every query is logged in Postgres `query_log` AND emits a Langfuse trace.

@@ -66,7 +66,6 @@ def retrieve(
     if conn is not None:
         return search(
             conn,
-            query_text=question,
             query_vector=query_vector,
             collections=collections,
             top_k=effective_top_k,
@@ -75,7 +74,6 @@ def retrieve(
     with connect(str(settings.database_url)) as own_conn:
         return search(
             own_conn,
-            query_text=question,
             query_vector=query_vector,
             collections=collections,
             top_k=effective_top_k,

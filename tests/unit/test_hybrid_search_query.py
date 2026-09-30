@@ -25,13 +25,17 @@ def test_query_uses_psycopg_placeholders_not_asyncpg() -> None:
     for asyncpg_placeholder in ("$1", "$2", "$3"):
         assert asyncpg_placeholder not in HYBRID_QUERY
     assert "%(query_vector)s" in HYBRID_QUERY
-    assert "%(query_text)s" in HYBRID_QUERY
     assert "%(collections)s" in HYBRID_QUERY
 
 
-def test_query_uses_pgvector_cosine_and_tsvector_rank() -> None:
+def test_query_uses_pgvector_cosine() -> None:
     assert "embedding <=> %(query_vector)s::vector" in HYBRID_QUERY
-    assert "ts_rank_cd(content_tsv" in HYBRID_QUERY
+
+
+@pytest.mark.parametrize("sparse", ["tsquery", "ts_rank_cd", "content_tsv", "%(query_text)s"])
+def test_query_has_no_sparse_side_and_takes_no_text(sparse: str) -> None:
+    """ADR-018: cosine distance alone. No user text reaches SQL."""
+    assert sparse not in HYBRID_QUERY
 
 
 @pytest.mark.parametrize(
@@ -52,23 +56,27 @@ def test_query_carries_optional_metadata_too(column: str) -> None:
 def test_limit_comes_from_a_parameter_not_a_literal() -> None:
     """ADR-008 cannot tune what is hardcoded in SQL."""
     assert "LIMIT 20" not in HYBRID_QUERY
-    assert HYBRID_QUERY.count("LIMIT %(top_k)s") == 3
+    assert HYBRID_QUERY.count("LIMIT %(top_k)s") == 1
 
 
-def test_missing_side_contributes_zero_not_a_sentinel_rank() -> None:
-    """ADR-003 Amendment 1.
+def test_rrf_score_is_the_dense_only_contribution() -> None:
+    """ADR-018: 1/(60 + dense_rank), what a dense-only chunk scored under the fusion.
 
-    The old form was COALESCE(rank, 999), giving 1/(60+999) = 0.000944 for a
-    missing side — 5.8% of a rank-1 contribution, where ADR-003 specifies zero.
+    No sentinel rank either (ADR-003 Amendment 1's 999 must not come back).
     """
+    assert "1.0 / (%(rrf_k)s + d.dense_rank) AS rrf_score" in HYBRID_QUERY
     assert "999" not in HYBRID_QUERY
-    assert HYBRID_QUERY.count("COALESCE(1.0 / (%(rrf_k)s +") == 2
-    assert ", 0)" in HYBRID_QUERY
+
+
+def test_the_sparse_fields_are_constant() -> None:
+    """The contract keeps them; 0.0 and NULL already mean "the sparse side did not rank it"."""
+    assert "0.0 AS sparse_score" in HYBRID_QUERY
+    assert "NULL::bigint AS sparse_rank" in HYBRID_QUERY
 
 
 def test_ordering_is_deterministic() -> None:
-    """Ties on rrf_score must not reorder between runs."""
-    assert "ORDER BY rrf_score DESC, c.id ASC" in HYBRID_QUERY
+    """The final order is the dense rank, which already carries the id tiebreak."""
+    assert "ORDER BY d.dense_rank ASC" in HYBRID_QUERY
 
 
 def test_rrf_constant_matches_adr_003() -> None:
@@ -144,25 +152,21 @@ def test_row_to_chunk_raises_rather_than_inventing_a_field(missing: str) -> None
         row_to_chunk(row)
 
 
-# ─── sparse side and tie-breaking ────────────────────────────────────────────
+# ─── tie-breaking ────────────────────────────────────────────────────────────
 
 
-def test_sparse_tsquery_is_built_once_inside_candidates() -> None:
-    """Computed once; every CTE below reads `sparse_score` by name."""
-    assert HYBRID_QUERY.count("plainto_tsquery(") == 1
-    candidates, _, rest = HYBRID_QUERY.partition("dense_ranked AS (")
-    assert "plainto_tsquery(" in candidates
-    assert "WHERE sparse_score > 0" in rest
-
-
-def test_both_ranked_lists_break_ties_by_id() -> None:
+def test_the_dense_ranking_breaks_ties_by_id() -> None:
     """ROW_NUMBER over a tied key is arbitrary: the rank would follow heap order.
 
-    The final `ORDER BY rrf_score DESC, c.id ASC` cannot repair a rank that was
-    already assigned arbitrarily one CTE earlier. Found under ADR-015's OR query,
-    where q002's top two sparse hits tie at 1.5; kept after its rejection.
+    Found under ADR-015's OR query on the sparse side; kept for the dense side,
+    which is now the only one.
     """
     assert "ROW_NUMBER() OVER (ORDER BY dense_dist ASC, id ASC)" in HYBRID_QUERY
-    assert "ROW_NUMBER() OVER (ORDER BY sparse_score DESC, id ASC)" in HYBRID_QUERY
     assert "ORDER BY dense_dist ASC, id ASC\n  LIMIT" in HYBRID_QUERY
-    assert "ORDER BY sparse_score DESC, id ASC\n  LIMIT" in HYBRID_QUERY
+
+
+def test_the_search_is_exact_not_an_index_scan() -> None:
+    """A window over every candidate: exact kNN, so rankings are reproducible (ADR-018)."""
+    candidates, _, _ = HYBRID_QUERY.partition("dense_ranked AS (")
+    assert "embedding <=> %(query_vector)s::vector AS dense_dist" in candidates
+    assert "ORDER BY" not in candidates

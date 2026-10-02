@@ -308,3 +308,18 @@
     - "Redpanda"
     - "drop-in"
   grep_verified: 2026-10-02
+
+- id: oos022
+  provenance: llm
+  voice: technical
+  intent: out-of-scope
+  band: adjacent
+  question: "How is Kafka tiered storage configured to keep a year of CDC history in object storage such as S3?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "tiered storage"
+    - "Tiered Storage"
+    - "object storage"
+    - "S3"
+  grep_verified: 2026-10-02

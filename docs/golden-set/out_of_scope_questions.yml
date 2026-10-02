@@ -236,3 +236,17 @@
     - "OpenSearch"
     - "full-text"
   grep_verified: 2026-10-02
+
+- id: oos017
+  provenance: llm
+  voice: recruiter
+  intent: out-of-scope
+  band: adjacent
+  question: "How is access to the Kafka topics secured with ACLs and SASL authentication?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "ACL"
+    - "SASL"
+    - "mTLS"
+  grep_verified: 2026-10-02

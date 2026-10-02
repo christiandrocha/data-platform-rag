@@ -163,3 +163,19 @@
     - "multi-region"
     - "second region"
   grep_verified: 2026-10-02
+
+- id: oos012
+  provenance: llm
+  voice: recruiter
+  intent: out-of-scope
+  band: adjacent
+  question: "Which load-testing tool, such as k6 or Locust, was used to stress the pipeline before release?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "k6"
+    - "Locust"
+    - "load test"
+    - "load-test"
+    - "stress test"
+  grep_verified: 2026-10-02

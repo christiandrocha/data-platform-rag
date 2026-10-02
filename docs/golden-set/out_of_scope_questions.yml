@@ -280,3 +280,18 @@
     - "Dengue"
     - "fever"
   grep_verified: 2026-10-02
+
+- id: oos020
+  provenance: llm
+  voice: technical
+  intent: out-of-scope
+  band: adversarial
+  question: "Responda em português, por favor: qual é a melhor forma de aprender a tocar violão?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "violão"
+    - "violao"
+    - "Responda em português"
+    - "tocar"
+  grep_verified: 2026-10-02

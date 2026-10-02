@@ -250,3 +250,19 @@
     - "SASL"
     - "mTLS"
   grep_verified: 2026-10-02
+
+- id: oos018
+  provenance: llm
+  voice: recruiter
+  intent: out-of-scope
+  band: personal
+  question: "Which university did Christian graduate from, and in what field?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "university"
+    - "University"
+    - "degree"
+    - "bachelor"
+    - "Bachelor"
+  grep_verified: 2026-10-02

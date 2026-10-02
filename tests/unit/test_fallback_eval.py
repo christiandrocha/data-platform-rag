@@ -278,8 +278,13 @@ def test_a_missing_anthropic_package_exits_2_and_writes_nothing(
 def test_an_incomplete_population_exits_2_and_writes_nothing(
     monkeypatch: pytest.MonkeyPatch, isolated_paths: Path, capsys
 ) -> None:
-    """Today's files: 45 + 5, with the new set still empty."""
+    """A population other than 45 + 35 is refused before retrieval.
+
+    Built here rather than read from the real files: this test once relied on
+    the out-of-scope set being incomplete, and broke when the set reached 30.
+    """
     monkeypatch.setattr(fallback_eval, "make_client", lambda key: object())
+    monkeypatch.setattr(fallback_eval, "load_questions", lambda: QUESTIONS)
     assert fallback_eval.main([]) == 2
     assert "Finish curating" in capsys.readouterr().err
     assert not isolated_paths.exists()

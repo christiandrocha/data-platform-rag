@@ -50,3 +50,18 @@
     - "Relocat"
     - "Europe"
   grep_verified: 2026-10-02
+
+- id: oos004
+  provenance: llm
+  voice: technical
+  intent: out-of-scope
+  band: off_domain
+  question: "What are the rules for the offside position in football?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "offside"
+    - "Offside"
+    - "football"
+    - "Football"
+  grep_verified: 2026-10-02

@@ -379,3 +379,16 @@
     - "Dynamic Table"
     - "dynamic table"
   grep_verified: 2026-10-02
+
+- id: oos027
+  provenance: llm
+  voice: recruiter
+  intent: out-of-scope
+  band: adjacent
+  question: "How does the Databricks project share the gold tables with external partners through Delta Sharing?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "Delta Sharing"
+    - "external partners"
+  grep_verified: 2026-10-02

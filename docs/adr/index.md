@@ -25,5 +25,6 @@ Reversals are documented in-place; superseded ADRs stay in the record.
 | ADR-017 | Document-frequency-filtered OR for the sparse side of hybrid retrieval | Rejected | 2026-09-30 |
 | ADR-018 | Dense-only retrieval | Accepted | 2026-09-30 |
 | ADR-019 | Cosine-similarity separability decides the out-of-scope gate | Accepted (not separable) | 2026-09-30 |
+| ADR-020 | The LLM's rule 3 as the out-of-scope gate, measured | Planned | — |
 
 **Legend**: Accepted (implemented as decided) · Planned (decision pending BUILD phase) · Rejected (measured and not adopted; kept as record) · Superseded · Resolved.

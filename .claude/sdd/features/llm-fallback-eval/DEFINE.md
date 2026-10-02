@@ -43,13 +43,15 @@ and it has no number.
 - **Classification of one output**, automatic and fixed here:
   - **fallback**: the output, trimmed, equals `FALLBACK_MESSAGE` exactly
   - **non-compliant refusal**: not exact, but contains `linkedin.com/in/christiandrocha`
+  - **empty** *(added by Amendment 1, 2026-10-02)*: the output, trimmed, is the
+    empty string. Checked first
   - **answer**: anything else
 - **Out-of-scope recall:** of the out-of-scope questions, the share classified as
   **fallback**. A non-compliant refusal does not count: the visitor did not get
   the fixed message.
 - **In-scope false-fallback rate:** of the 45 in-scope golden questions, the share
   classified as **fallback or non-compliant refusal**. Either way, the visitor
-  got no answer.
+  got no answer. *Amendment 1 (2026-10-02): **empty** counts here too.*
 - **The out-of-scope population:** the golden set's 5 out-of-scope questions
   plus a **new out-of-scope evaluation set** of **30** questions (Q2), disjoint from
   the golden set. No tuning happens in this feature, so the golden 5 can count
@@ -105,7 +107,8 @@ change.
 
 - [ ] `classify_output` unit tests: exact message (with surrounding whitespace) →
       fallback; paraphrase with the LinkedIn URL → non-compliant; an answer → answer;
-      an answer that merely mentions LinkedIn without the URL → answer
+      an answer that merely mentions LinkedIn without the URL → answer;
+      whitespace only → empty (Amendment 1)
 - [ ] The client is tested with a stub: it passes `SYSTEM_PROMPT`, the top
       `rerank_top_k` chunks' content and the question, and returns the stub's text.
       No network
@@ -153,3 +156,23 @@ change.
 | Users are named and their pain is real | 4 | Both failure modes have a named victim. No real visitor yet: no UI |
 | Success criteria include numbers | 5 | T1 = 95% (34/35), T2 = 10% (4/45), N = 30, R = 3, all settled by the author on 2026-09-30 before any call |
 | **Total** | **14/15** | Proceeds to DESIGN. Q4 belongs to DESIGN |
+
+## Amendment 1 — 2026-10-02, before any API call: the empty output
+
+Found in DESIGN review, decided by the author on 2026-10-02. No call had been
+made, so nothing had been observed that the change could be fitted to.
+
+The three classes read an empty output as an **answer**. On an in-scope question
+that understates B2: the visitor got nothing, which is the dead end B2 counts
+("Either way, the visitor got no answer"). A fourth class, **empty**, is checked
+first. It counts against B2. Against B1 nothing changes: an empty output was
+already not a fallback, so it was already a miss.
+
+The decision rule itself (B1, B2 and the outcome table) is unchanged, byte for
+byte. It names no class except the non-compliant refusal. Only the Definitions
+above changed, marked where they did.
+
+**Not fixed, recorded:** a refusal that omits the LinkedIn URL ("I don't have
+information on that") on an in-scope question is still classified as an
+**answer**, so B2 can still understate. Detecting it needs a judge, which this
+feature's exact-match design excludes. ADR-020 records it as a known limitation.

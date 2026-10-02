@@ -107,3 +107,17 @@
     - "Salesforce"
     - "Hightouch"
   grep_verified: 2026-10-02
+
+- id: oos008
+  provenance: llm
+  voice: recruiter
+  intent: out-of-scope
+  band: personal
+  question: "What is Christian's notice period, and how soon could Christian start a new job?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "notice period"
+    - "start date"
+    - "Start date"
+  grep_verified: 2026-10-02

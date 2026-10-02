@@ -266,3 +266,17 @@
     - "bachelor"
     - "Bachelor"
   grep_verified: 2026-10-02
+
+- id: oos019
+  provenance: llm
+  voice: technical
+  intent: out-of-scope
+  band: off_domain
+  question: "What are the early symptoms of dengue fever?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "dengue"
+    - "Dengue"
+    - "fever"
+  grep_verified: 2026-10-02

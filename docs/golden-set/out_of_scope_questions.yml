@@ -222,3 +222,17 @@
     - "favourite"
     - "programming language"
   grep_verified: 2026-10-02
+
+- id: oos016
+  provenance: llm
+  voice: technical
+  intent: out-of-scope
+  band: adjacent
+  question: "How are the gold tables indexed into Elasticsearch to power full-text search in the app?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "Elasticsearch"
+    - "OpenSearch"
+    - "full-text"
+  grep_verified: 2026-10-02

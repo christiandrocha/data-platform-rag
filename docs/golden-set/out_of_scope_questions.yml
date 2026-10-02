@@ -8,4 +8,18 @@
 # probes that pass `make verify-adversarials` (Layer 1) before commit, Layer 2
 # when an API key exists. Target 30, by band: 12 adjacent, 6 personal,
 # 6 off_domain, 6 adversarial. `make golden-set-check` enforces the shape.
-[]
+
+- id: oos001
+  provenance: llm
+  voice: technical
+  intent: out-of-scope
+  band: adjacent
+  question: "How does the platform use Trino to query the Snowflake and Databricks tables together in a single SQL statement?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "Trino"
+    - "Presto"
+    - "federated"
+    - "Federated"
+  grep_verified: 2026-10-02

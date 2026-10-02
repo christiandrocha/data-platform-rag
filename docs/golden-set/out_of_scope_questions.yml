@@ -365,3 +365,17 @@
     - "0031"
     - "Oracle"
   grep_verified: 2026-10-02
+
+- id: oos026
+  provenance: llm
+  voice: technical
+  intent: out-of-scope
+  band: adjacent
+  question: "Why weren't Snowflake Dynamic Tables used instead of Streams and Triggered Tasks?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "Dynamic Tables"
+    - "Dynamic Table"
+    - "dynamic table"
+  grep_verified: 2026-10-02

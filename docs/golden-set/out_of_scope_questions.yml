@@ -148,3 +148,18 @@
     - "CAP theorem"
     - "general knowledge"
   grep_verified: 2026-10-02
+
+- id: oos011
+  provenance: llm
+  voice: technical
+  intent: out-of-scope
+  band: adjacent
+  question: "How does the platform replicate Kafka topics to a second region with MirrorMaker 2 for disaster recovery?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "MirrorMaker"
+    - "disaster recovery"
+    - "multi-region"
+    - "second region"
+  grep_verified: 2026-10-02

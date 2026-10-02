@@ -194,3 +194,17 @@
     - "certified"
     - "Certified"
   grep_verified: 2026-10-02
+
+- id: oos014
+  provenance: llm
+  voice: technical
+  intent: out-of-scope
+  band: off_domain
+  question: "How are capital gains on stock sales taxed in Brazil?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "capital gains"
+    - "Capital gains"
+    - "income tax"
+  grep_verified: 2026-10-02

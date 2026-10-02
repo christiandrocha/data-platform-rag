@@ -407,3 +407,17 @@
     - "Hobbies"
     - "outside of work"
   grep_verified: 2026-10-02
+
+- id: oos029
+  provenance: llm
+  voice: technical
+  intent: out-of-scope
+  band: off_domain
+  question: "Who wrote One Hundred Years of Solitude, and when was it published?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "Solitude"
+    - "García Márquez"
+    - "Garcia Marquez"
+  grep_verified: 2026-10-02

@@ -13,7 +13,9 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
 from validate_golden_set import (  # noqa: E402
+    OUT_OF_SCOPE_BAND_DISTRIBUTION,
     check_adversarial_fields,
+    check_band,
     check_coherence,
     check_comparison_sources,
     check_distribution,
@@ -22,6 +24,7 @@ from validate_golden_set import (  # noqa: E402
     check_voice,
     high_risk_tokens,
     should_fallback,
+    validate_out_of_scope_set,
 )
 
 
@@ -367,3 +370,116 @@ def test_single_project_rule_applies_only_to_comparison():
     errors = []
     check_comparison_sources(0, in_scope(intent="decision"), errors)
     assert errors == []
+
+
+# ─── band (ADR-020) ──────────────────────────────────────────────────────────
+
+
+def test_band_is_required_on_an_out_of_scope_question():
+    errors = []
+    check_band(0, adversarial(), errors)
+    assert len(errors) == 1 and "band" in errors[0]
+
+
+def test_an_invalid_band_is_rejected():
+    errors = []
+    check_band(0, adversarial(band="nearby"), errors)
+    assert len(errors) == 1
+
+
+@pytest.mark.parametrize("band", sorted(OUT_OF_SCOPE_BAND_DISTRIBUTION))
+def test_every_valid_band_is_accepted(band):
+    errors = []
+    check_band(0, adversarial(band=band), errors)
+    assert errors == []
+
+
+def test_band_is_rejected_on_an_in_scope_question():
+    errors = []
+    check_band(0, in_scope(band="adjacent"), errors)
+    assert len(errors) == 1 and "only on out-of-scope" in errors[0]
+
+
+# ─── the out-of-scope set (ADR-020) ──────────────────────────────────────────
+
+
+def oos(n, band="adjacent", **over):
+    q = {
+        "id": f"oos{n:03d}",
+        "provenance": "llm",
+        "voice": "technical",
+        "intent": "out-of-scope",
+        "band": band,
+        "question": f"Out-of-scope question number {n}?",
+        "expected_answer": None,
+        "expected_source_paths": [],
+        "contamination_probes": [f"probe {n}"],
+        "grep_verified": "2026-10-02",
+    }
+    q.update(over)
+    return q
+
+
+def full_set():
+    bands = [b for b, n in sorted(OUT_OF_SCOPE_BAND_DISTRIBUTION.items()) for _ in range(n)]
+    return [oos(i, band) for i, band in enumerate(bands, start=1)]
+
+
+GOLDEN = [
+    {"id": "q005", "question": "What is Christian's opinion on Apache Flink?"},
+]
+
+
+def test_an_empty_set_is_valid_and_reports_progress():
+    errors, warnings = validate_out_of_scope_set([], GOLDEN)
+    assert errors == []
+    assert any("0/30" in w for w in warnings)
+
+
+def test_a_full_set_at_12_6_6_6_is_valid():
+    errors, warnings = validate_out_of_scope_set(full_set(), GOLDEN)
+    assert errors == [] and warnings == []
+
+
+def test_a_full_set_with_the_wrong_band_mix_is_rejected():
+    data = full_set()
+    data[0] = oos(1, "personal")  # one adjacent becomes personal
+    errors, _ = validate_out_of_scope_set(data, GOLDEN)
+    assert any("adjacent is 11" in e for e in errors)
+    assert any("personal is 7" in e for e in errors)
+
+
+def test_more_than_30_is_rejected():
+    errors, _ = validate_out_of_scope_set(full_set() + [oos(31)], GOLDEN)
+    assert any("exactly 30" in e for e in errors)
+
+
+def test_only_out_of_scope_questions_belong_in_the_set():
+    errors, _ = validate_out_of_scope_set([oos(1, intent="decision")], GOLDEN)
+    assert any("only out-of-scope" in e for e in errors)
+
+
+@pytest.mark.parametrize("bad_id", ["q051", "oos1", "OOS001", "oos0001"])
+def test_ids_must_be_oos_nnn(bad_id):
+    errors, _ = validate_out_of_scope_set([oos(1, id=bad_id)], GOLDEN)
+    assert any("oosNNN" in e for e in errors)
+
+
+def test_an_id_shared_with_the_golden_set_is_rejected():
+    golden = GOLDEN + [{"id": "oos001", "question": "x"}]
+    errors, _ = validate_out_of_scope_set([oos(1)], golden)
+    assert any("also in the golden set" in e and "id" in e for e in errors)
+
+
+def test_question_text_shared_with_the_golden_set_is_rejected():
+    """Compared after collapsing whitespace and case: a reflow is not a new question."""
+    question = "What is  CHRISTIAN's opinion on\nApache Flink?"
+    errors, _ = validate_out_of_scope_set([oos(1, question=question)], GOLDEN)
+    assert any("question text is also in the golden set" in e for e in errors)
+
+
+def test_the_shared_entry_checks_apply_to_the_set():
+    q = oos(1)
+    del q["contamination_probes"]
+    errors, _ = validate_out_of_scope_set([q], GOLDEN)
+    assert any("contamination_probes" in e for e in errors)

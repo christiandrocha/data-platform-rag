@@ -3,8 +3,19 @@
 ## Pipeline stages
 
 ```
-Query → Intent classifier → Dense retrieval (ADR-018) → Reranking → Threshold check → LLM or Fallback
+Query → Dense retrieval (ADR-018), top settings.rerank_top_k → LLM under SYSTEM_PROMPT → answer, or the fallback by rule 3
 ```
+
+Not built: the intent classifier (default collections stand in for it) and the
+reranker (ADR-005 rejected both candidates). There is no score gate: ADR-019
+measured that similarity does not separate in-scope from out-of-scope.
+
+**Generation** (`generation/client.py`) is one Claude call: `SYSTEM_PROMPT`,
+then a user message of tagged chunks (`CONTEXT_FORMAT_VERSION`) and the
+question, at `settings.llm_model`, `settings.llm_temperature` and
+`settings.llm_max_tokens`, with no extended thinking. Whether rule 3 sends the
+fallback when, and only when, it should is measured by `make fallback-eval`
+against ADR-020's rule.
 
 ## Design principles
 

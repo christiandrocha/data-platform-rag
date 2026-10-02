@@ -1,5 +1,12 @@
-"""Validate docs/golden-set/evaluation_questions.yml against schema."""
+"""Validate the golden set and the out-of-scope evaluation set against schema.
 
+Two files, one entry schema. `evaluation_questions.yml` is the golden set (50
+questions, every intent). `out_of_scope_questions.yml` is ADR-020's out-of-scope
+evaluation set: 30 questions, disjoint from the golden set, that only measure
+rule 3. Each file has its own distribution; the per-entry checks are shared.
+"""
+
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -46,6 +53,25 @@ VALID_INTENTS = {"decision", "architecture", "comparison", "out-of-scope"}
 # This repo is never a corpus source (AGENTS.md boundary).
 VALID_PROJECTS = {"sdd-kafka-snowflake-2", "sdd-kafka-databricks"}
 SOURCE_FIELDS = {"project", "path"}
+
+GOLDEN_SET = Path("docs/golden-set/evaluation_questions.yml")
+OUT_OF_SCOPE_SET = Path("docs/golden-set/out_of_scope_questions.yml")
+
+# ADR-020: every out-of-scope question, in both files, declares its band, so the
+# Outcome can judge predictions per band instead of by re-reading question text.
+# Rejected on in-scope questions. Mirrors data_platform_rag.contracts.OutOfScopeBand.
+BAND_FIELD = "band"
+VALID_BANDS = {"adjacent", "personal", "off_domain", "adversarial"}
+
+OUT_OF_SCOPE_TARGET_TOTAL = 30
+OUT_OF_SCOPE_BAND_DISTRIBUTION = {
+    "adjacent": 12,
+    "personal": 6,
+    "off_domain": 6,
+    "adversarial": 6,
+}
+# A prefix that cannot collide with the golden set's `qNNN`.
+OUT_OF_SCOPE_ID = re.compile(r"^oos\d{3}$")
 
 TARGET_TOTAL = 50
 TARGET_DISTRIBUTION = {
@@ -146,6 +172,20 @@ def check_adversarial_fields(i: int, q: dict, errors: list[str]) -> None:
     for j, probe in enumerate(probes):
         if not isinstance(probe, str) or not probe.strip():
             errors.append(f"{where}.contamination_probes[{j}] must be a non-empty string")
+
+
+def check_band(i: int, q: dict, errors: list[str]) -> None:
+    """Out-of-scope questions declare a valid band; in-scope ones must not (ADR-020)."""
+    present = BAND_FIELD in q
+    if not should_fallback(q):
+        if present:
+            errors.append(f"[{i}] {BAND_FIELD!r} allowed only on out-of-scope questions")
+        return
+    if q.get(BAND_FIELD) not in VALID_BANDS:
+        errors.append(
+            f"[{i}] out-of-scope question needs a band in {sorted(VALID_BANDS)}, "
+            f"got {q.get(BAND_FIELD)!r}"
+        )
 
 
 def check_voice(i: int, q: dict, errors: list[str]) -> None:
@@ -260,19 +300,8 @@ def check_distribution(data: list, errors: list[str], warnings: list[str]) -> No
                 errors.append(f"distribution: {intent} is {got}, target {target}")
 
 
-def main() -> int:
-    path = Path("docs/golden-set/evaluation_questions.yml")
-    if not path.exists():
-        print(f"ERROR: {path} not found")
-        return 1
-
-    data = yaml.safe_load(path.read_text())
-    if not isinstance(data, list):
-        print("ERROR: YAML must be a list of question objects")
-        return 1
-
-    errors: list[str] = []
-    warnings: list[str] = []
+def check_entries(data: list, errors: list[str], warnings: list[str], *, full: bool) -> None:
+    """The per-entry checks, shared by both files."""
     seen_ids = set()
     for i, q in enumerate(data):
         if not isinstance(q, dict):
@@ -281,7 +310,9 @@ def main() -> int:
         missing = REQUIRED_FIELDS - set(q.keys())
         if missing:
             errors.append(f"[{i}] missing fields: {missing}")
-        unknown = set(q.keys()) - REQUIRED_FIELDS - ADVERSARIAL_FIELDS - GROUNDING_FIELDS
+        unknown = (
+            set(q.keys()) - REQUIRED_FIELDS - ADVERSARIAL_FIELDS - GROUNDING_FIELDS - {BAND_FIELD}
+        )
         if unknown:
             errors.append(f"[{i}] unknown fields: {sorted(unknown)}")
         if q.get("provenance") not in VALID_PROVENANCE:
@@ -294,26 +325,125 @@ def main() -> int:
         check_sources(i, q, errors)
         check_coherence(i, q, errors)
         check_adversarial_fields(i, q, errors)
+        check_band(i, q, errors)
         check_voice(i, q, errors)
         check_comparison_sources(i, q, errors)
-        check_grounding(i, q, errors, warnings, full=len(data) >= TARGET_TOTAL)
+        check_grounding(i, q, errors, warnings, full=full)
 
+
+def check_out_of_scope_set(
+    data: list, golden: list, errors: list[str], warnings: list[str]
+) -> None:
+    """What the out-of-scope set adds to the shared checks (ADR-020).
+
+    Out-of-scope only, `oosNNN` ids, disjoint from the golden set by id and by
+    question text, and 12/6/6/6 by band once it reaches 30. Below 30 it reports
+    progress, like the golden set's distribution check.
+    """
+    golden_ids = {q.get("id") for q in golden if isinstance(q, dict)}
+    golden_questions = {
+        " ".join(str(q.get("question", "")).split()).lower() for q in golden if isinstance(q, dict)
+    }
+    for i, q in enumerate(data):
+        if not isinstance(q, dict):
+            continue
+        if q.get("intent") != "out-of-scope":
+            errors.append(
+                f"[{i}] the out-of-scope set holds only out-of-scope questions, "
+                f"got intent {q.get('intent')!r}"
+            )
+        qid = q.get("id")
+        if not isinstance(qid, str) or not OUT_OF_SCOPE_ID.match(qid):
+            errors.append(f"[{i}] id must match oosNNN, got {qid!r}")
+        if qid in golden_ids:
+            errors.append(f"[{i}] id {qid!r} is also in the golden set")
+        text = " ".join(str(q.get("question", "")).split()).lower()
+        if text in golden_questions:
+            errors.append(f"[{i}] question text is also in the golden set")
+
+    counts = Counter(q.get(BAND_FIELD) for q in data if isinstance(q, dict))
+    total = len(data)
+    if total < OUT_OF_SCOPE_TARGET_TOTAL:
+        warnings.append(
+            f"{total}/{OUT_OF_SCOPE_TARGET_TOTAL} out-of-scope set questions "
+            "— curation incomplete."
+        )
+        for band, target in sorted(OUT_OF_SCOPE_BAND_DISTRIBUTION.items()):
+            warnings.append(f"    {band:<14} {counts.get(band, 0):>2}/{target}")
+    elif total > OUT_OF_SCOPE_TARGET_TOTAL:
+        errors.append(
+            f"{total} out-of-scope set questions — the target is exactly "
+            f"{OUT_OF_SCOPE_TARGET_TOTAL}"
+        )
+    else:
+        for band, target in sorted(OUT_OF_SCOPE_BAND_DISTRIBUTION.items()):
+            got = counts.get(band, 0)
+            if got != target:
+                errors.append(f"band distribution: {band} is {got}, target {target}")
+
+
+def validate_golden(data: list) -> tuple[list[str], list[str]]:
+    """Errors and warnings for the golden set."""
+    errors: list[str] = []
+    warnings: list[str] = []
+    check_entries(data, errors, warnings, full=len(data) >= TARGET_TOTAL)
     check_distribution(data, errors, warnings)
+    return errors, warnings
 
+
+def validate_out_of_scope_set(data: list, golden: list) -> tuple[list[str], list[str]]:
+    """Errors and warnings for ADR-020's out-of-scope set."""
+    errors: list[str] = []
+    warnings: list[str] = []
+    check_entries(data, errors, warnings, full=True)
+    check_out_of_scope_set(data, golden, errors, warnings)
+    return errors, warnings
+
+
+def load_question_file(path: Path) -> list:
+    """A question file as a list. Raises ValueError naming the file otherwise."""
+    if not path.exists():
+        raise ValueError(f"{path} not found")
+    data = yaml.safe_load(path.read_text())
+    if not isinstance(data, list):
+        raise ValueError(f"{path} must be a YAML list of question objects")
+    return data
+
+
+def report(label: str, data: list, errors: list[str], warnings: list[str]) -> bool:
+    """Print one file's result. True when it has no errors."""
     for w in warnings:
         print(f"  ! {w}")
     if errors:
+        print(f"✗ {label}:")
         for e in errors:
             print(f"  {e}")
-        return 1
-
+        return False
     n_fallback = sum(1 for q in data if should_fallback(q))
     by_prov = Counter(q.get("provenance") for q in data)
     prov = ", ".join(f"{k}={v}" for k, v in sorted(by_prov.items()) if k)
     by_voice = Counter(q.get("voice") for q in data)
     voice = ", ".join(f"{k}={v}" for k, v in sorted(by_voice.items()) if k)
-    print(f"✓ {len(data)} questions valid ({n_fallback} expect the fallback) [{prov}] [{voice}]")
-    return 0
+    print(
+        f"✓ {label}: {len(data)} questions valid ({n_fallback} expect the fallback) "
+        f"[{prov}] [{voice}]"
+    )
+    return True
+
+
+def main() -> int:
+    try:
+        golden = load_question_file(GOLDEN_SET)
+        out_of_scope = load_question_file(OUT_OF_SCOPE_SET)
+    except ValueError as exc:
+        print(f"ERROR: {exc}")
+        return 1
+
+    golden_ok = report(GOLDEN_SET.name, golden, *validate_golden(golden))
+    oos_ok = report(
+        OUT_OF_SCOPE_SET.name, out_of_scope, *validate_out_of_scope_set(out_of_scope, golden)
+    )
+    return 0 if golden_ok and oos_ok else 1
 
 
 if __name__ == "__main__":

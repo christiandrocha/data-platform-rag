@@ -21,7 +21,7 @@
 - **Observability**: Langfuse (cloud free tier initially) — traces every query, tracks Claude cost, receives RAGAS scores as feedback
 - **Evaluation**: RAGAS framework — golden set of 50 questions, runs in CI on every push, scores pushed to Langfuse
 - **UI**: Streamlit
-- **Orchestration**: Makefile (25 targets: bootstrap, index, eval, dev, deploy, and observability targets)
+- **Orchestration**: Makefile (29 targets: bootstrap, index, eval, dev, deploy, and observability targets)
 - **Quality**: ruff, pytest, yamllint, bandit, pre-commit
 - **CI/CD**: GitHub Actions (lint, test, ragas, streamlit deploy)
 - **Methodology**: AgentSpec/SDD — six-phase workflow (brainstorm → define → design → build → iterate → ship)
@@ -53,7 +53,7 @@ data-platform-rag/
 ├── CLAUDE.md → AGENTS.md       # Symlink for Claude Code
 ├── README.md                   # Public-facing overview + RAGAS badges + Langfuse public dashboard link
 ├── LICENSE                     # MIT
-├── Makefile                    # 25 operational targets
+├── Makefile                    # 29 operational targets
 ├── pyproject.toml              # ruff + pytest + pydantic/pydantic-settings + langfuse
 ├── docker-compose.yml          # postgres+pgvector for local dev
 ├── Dockerfile                  # streamlit runtime
@@ -177,6 +177,8 @@ make verify-indexes             # EXPLAIN ANALYZE the top queries, compare to ba
 # Retrieval
 make ask q="why Snowpipe Streaming?"   # retrieve and print ranked chunks, no LLM
 make retrieval-recall           # source recall at k over the golden set (ADR-014)
+make fallback-eval              # measure rule 3, the LLM's out-of-scope gate (ADR-020, needs a key)
+make fallback-eval-dry          # print the LLM inputs fallback-eval would send; no key, no call
 
 # Evaluation
 make eval                       # run RAGAS against golden set, push scores to Langfuse

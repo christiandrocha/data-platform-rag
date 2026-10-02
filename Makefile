@@ -1,5 +1,5 @@
 .PHONY: help bootstrap reset-db dev down fetch-corpus index-corpus index-corpus-dry \
-	index-corpus-verify reindex ask retrieval-recall \
+	index-corpus-verify reindex ask retrieval-recall fallback-eval fallback-eval-dry \
 	verify-indexes eval eval-ci golden-set-check golden-set-next \
 	golden-set-next-architecture golden-set-next-comparison-pair \
 	verify-adversarials audit-adversarials langfuse-check langfuse-flush \
@@ -44,6 +44,8 @@ help:
 	@echo "Retrieval:"
 	@echo "  make ask q=\"...\"      Retrieve and print ranked chunks (no LLM)"
 	@echo "  make retrieval-recall Source recall at k over the golden set (ADR-014)"
+	@echo "  make fallback-eval    Measure rule 3, the LLM's out-of-scope gate (ADR-020)"
+	@echo "  make fallback-eval-dry  Print the assembled LLM inputs; no key, no call"
 	@echo "  make index-corpus     Chunk, embed, upsert into pgvector (slice 2)"
 	@echo "  make reindex          Drop and rebuild vectors (destructive)"
 	@echo "  make verify-indexes   EXPLAIN ANALYZE top queries against baseline"
@@ -127,6 +129,16 @@ ask:
 # baseline=FILE prints ADR-017's A1-A4 inputs against an earlier artifact.
 retrieval-recall:
 	$(PYTHON) scripts/retrieval_recall.py $(if $(baseline),--baseline $(baseline))
+
+# ADR-020: does the LLM send the fallback when, and only when, it should?
+# 3 runs x 80 questions = 240 Claude calls. Needs ANTHROPIC_API_KEY; without one it
+# exits 2 and writes nothing. Writes .claude/dev/reports/fallback-eval-{timestamp}.json
+fallback-eval:
+	$(PYTHON) scripts/fallback_eval.py
+
+# No key needed: retrieves, prints the user messages the LLM would read, calls nothing.
+fallback-eval-dry:
+	$(PYTHON) scripts/fallback_eval.py --dry-run
 
 verify-indexes:
 	$(COMPOSE) exec -T postgres psql -U dpr -d data_platform_rag -f - < sql/99_verify.sql

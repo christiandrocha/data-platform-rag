@@ -4,6 +4,11 @@ from __future__ import annotations
 
 SYSTEM_PROMPT_VERSION = "v1.1.0"
 
+# The format of the user message `generation.client.build_user_message` assembles:
+# retrieved chunks as tagged blocks, then the question. Versioned on its own because
+# it is part of what the LLM reads, and ADR-020's reading holds for one version.
+CONTEXT_FORMAT_VERSION = "v1.0.0"
+
 SYSTEM_PROMPT = """You are data-platform-rag, a retrieval-augmented assistant grounded on
 architecture decision records (ADRs) and technical documentation from Christian
 Rocha's data engineering projects.

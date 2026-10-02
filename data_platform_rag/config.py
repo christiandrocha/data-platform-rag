@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     # LLM
     anthropic_api_key: SecretStr
     llm_model: str = "claude-sonnet-4-6"
+    # Generation call parameters. ADR-020 measured rule 3 at these values, and its
+    # artifact records the ones used, so an override cannot change a reading
+    # silently. 1024 leaves rule 5's ~300-word answer room to finish.
+    llm_max_tokens: int = Field(default=1024, ge=1, le=16000)
+    llm_temperature: float = Field(default=0.0, ge=0.0, le=1.0)
 
     # Database
     database_url: PostgresDsn

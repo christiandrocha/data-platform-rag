@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     # LLM
     anthropic_api_key: SecretStr
     llm_model: str = "claude-sonnet-4-6"
+    llm_max_tokens: int = Field(default=1024, ge=1, le=16000)
+    llm_temperature: float = Field(default=0.0, ge=0.0, le=1.0)
 
     # Database
     database_url: PostgresDsn

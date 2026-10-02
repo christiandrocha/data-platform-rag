@@ -323,3 +323,18 @@
     - "object storage"
     - "S3"
   grep_verified: 2026-10-02
+
+- id: oos023
+  provenance: llm
+  voice: recruiter
+  intent: out-of-scope
+  band: personal
+  question: "What salary range is Christian expecting for a senior data engineering role?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "salary"
+    - "Salary"
+    - "compensation"
+    - "Compensation"
+  grep_verified: 2026-10-02

@@ -1,7 +1,8 @@
 """Layer 1 of adversarial verification (ADR-011): literal contamination probes.
 
-For every `intent: out-of-scope` question, grep each declared contamination probe
-against the indexed file set of both corpus repos. A literal match on any probe
+For every `intent: out-of-scope` question, in the golden set and in ADR-020's
+out-of-scope evaluation set, grep each declared contamination probe against the
+indexed file set of both corpus repos. A literal match on any probe
 means the question has lost its adversarial status, and the run fails.
 
 This is a blocking precondition of `make eval` and `make eval-ci`. It is not a
@@ -30,7 +31,7 @@ import argparse
 import sys
 from pathlib import Path
 
-import yaml
+from validate_golden_set import GOLDEN_SET, OUT_OF_SCOPE_SET, load_question_file
 
 from data_platform_rag.indexer.corpus import (
     corpus_projects,
@@ -38,7 +39,21 @@ from data_platform_rag.indexer.corpus import (
     resolve_snapshot,
 )
 
-GOLDEN_SET = Path("docs/golden-set/evaluation_questions.yml")
+# Both files' adversarials. A missing file is an error, not a skip: a gate that
+# silently checks half its questions reports green on the half it never read.
+QUESTION_FILES = (GOLDEN_SET, OUT_OF_SCOPE_SET)
+
+
+def load_adversarials(paths: tuple[Path, ...] = QUESTION_FILES) -> list[dict]:
+    """Every out-of-scope question across `paths`. Raises ValueError on a bad file."""
+    adversarials: list[dict] = []
+    for path in paths:
+        adversarials.extend(
+            q
+            for q in load_question_file(path)
+            if isinstance(q, dict) and q.get("intent") == "out-of-scope"
+        )
+    return adversarials
 
 
 def probe_matches(probe: str, files: list[Path]) -> list[tuple[Path, int, str]]:
@@ -76,8 +91,11 @@ def main() -> int:
             return 1
         repos.append((repo, name))
 
-    data = yaml.safe_load(GOLDEN_SET.read_text())
-    adversarials = [q for q in data if q.get("intent") == "out-of-scope"]
+    try:
+        adversarials = load_adversarials()
+    except ValueError as exc:
+        print(f"ERROR: {exc}")
+        return 1
     if not adversarials:
         print("ERROR: no out-of-scope questions found — nothing to verify")
         return 1

@@ -19,6 +19,11 @@ SourceType = Literal["adr", "readme", "contract", "macro", "schema"]
 Intent = Literal["decision", "architecture", "comparison", "hybrid"]
 ADRStatus = Literal["accepted", "superseded", "resolved", "planned"]
 
+# Fallback evaluation (ADR-020). `empty` is DEFINE Amendment 1's fourth class.
+OutputClass = Literal["fallback", "non_compliant_refusal", "empty", "answer"]
+QuestionSource = Literal["golden", "out_of_scope_set"]
+OutOfScopeBand = Literal["adjacent", "personal", "off_domain", "adversarial"]
+
 
 # ─── Corpus snapshot manifest (written at acquisition time) ──────────────────
 #
@@ -247,3 +252,107 @@ class RAGASAggregate(BaseModel):
     context_recall_mean: float = Field(ge=0.0, le=1.0)
     fallback_accuracy: float = Field(ge=0.0, le=1.0)
     reports: list[RAGASReport]
+
+
+# ─── Generation ──────────────────────────────────────────────────────────────
+
+
+class GenerationResult(BaseModel):
+    """One Claude call: what came back, and what it cost."""
+
+    model_config = ConfigDict(frozen=True)
+
+    # Every text block of the response, joined in order. May be "": an empty
+    # output is a class of its own (ADR-020), not an error.
+    text: str
+    model: str  # as the API reports it, not as requested
+    stop_reason: str | None
+    input_tokens: int = Field(ge=0)
+    output_tokens: int = Field(ge=0)
+
+
+# ─── Fallback evaluation (ADR-020) ───────────────────────────────────────────
+
+
+class RetrievedSource(BaseModel):
+    """What a question's context was built from. Citation fields only, no text."""
+
+    model_config = ConfigDict(frozen=True)
+
+    chunk_id: int
+    source_project: SourceProject
+    source_path: str
+    source_anchor: str | None
+    adr_id: str | None
+    dense_distance: float = Field(ge=0.0)
+
+
+class FallbackEvalItem(BaseModel):
+    """One question in one run of `make fallback-eval`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    run: int = Field(ge=1)
+    question_id: str
+    source: QuestionSource
+    intent: str  # the golden-set intent, verbatim
+    band: OutOfScopeBand | None  # every out-of-scope question; None in-scope
+    expects_fallback: bool
+    retrieved: list[RetrievedSource]
+    output_text: str
+    output_class: OutputClass
+    stop_reason: str | None
+    input_tokens: int = Field(ge=0)
+    output_tokens: int = Field(ge=0)
+
+
+class FallbackRunSummary(BaseModel):
+    """The two numbers ADR-020's rule reads, for one run. Counts, not a verdict.
+
+    B1 is `out_of_scope_fallback / out_of_scope_total`, B2 is
+    `in_scope_false_fallback / in_scope_total`. The thresholds live in the ADR
+    and nowhere in code, so code cannot drift from them.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    run: int = Field(ge=1)
+    out_of_scope_total: int = Field(ge=0)
+    out_of_scope_fallback: int = Field(ge=0)
+    in_scope_total: int = Field(ge=0)
+    in_scope_false_fallback: int = Field(ge=0)  # fallback + non-compliant + empty
+    missed_ids: list[str]  # out-of-scope, any class but fallback
+    non_compliant_out_of_scope_ids: list[str]
+    false_fallback_ids: list[str]  # in-scope, fallback, non-compliant or empty
+    empty_ids: list[str]  # either side
+    non_end_turn_ids: list[str]  # any stop_reason other than end_turn
+
+
+class FallbackEvalReport(BaseModel):
+    """The artifact of `make fallback-eval`: everything needed to re-read it later.
+
+    `complete=False` is not a reading (ADR-020): a call failed or the run was
+    interrupted. It carries the outputs it has and no summaries, so there is no
+    number to look at before starting over.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    created_at: datetime
+    complete: bool
+    incomplete_reason: str | None
+    model: str
+    temperature: float
+    max_tokens: int
+    runs_requested: int = Field(ge=1)
+    top_k: int = Field(ge=1)
+    system_prompt_version: str
+    system_prompt_sha256: str
+    context_format_version: str
+    golden_set_sha256: str
+    out_of_scope_set_sha256: str
+    snapshots: list[IndexedSnapshot]
+    summaries: list[FallbackRunSummary]
+    items: list[FallbackEvalItem]
+    total_input_tokens: int = Field(ge=0)
+    total_output_tokens: int = Field(ge=0)

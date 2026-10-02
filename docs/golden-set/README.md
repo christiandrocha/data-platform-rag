@@ -32,6 +32,32 @@ inferred: both repos carry a `README.md` and a `docs/adr/` tree, so a bare path
 does not identify a document. `scripts/validate_golden_set.py` rejects entries
 without it, and also enforces the distribution below once the set reaches 50.
 
+Out-of-scope questions carry three more fields, and no answer or sources:
+
+```yaml
+- id: q005
+  intent: out-of-scope
+  band: adjacent                  # adjacent | personal | off_domain | adversarial (ADR-020)
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:           # phrases that must not occur in-corpus (ADR-011)
+    - "Apache Flink"
+  grep_verified: 2026-09-14
+```
+
+`band` is required on every out-of-scope question and rejected on any other.
+It lets ADR-020's Outcome read the fallback per band.
+
+## The out-of-scope evaluation set
+
+`out_of_scope_questions.yml` holds 30 more out-of-scope questions (`oos001`–`oos030`)
+in the same schema. They measure one thing only: whether system-prompt rule 3
+sends the fallback (ADR-020, `make fallback-eval`). They are not part of the
+golden set and never grade RAGAS. The validator keeps the two files disjoint by
+id and by question text, and enforces 12 adjacent, 6 personal, 6 off_domain and
+6 adversarial once the set reaches 30. `make verify-adversarials` greps the probes
+of both files.
+
 ## Provenance
 
 Every question declares `provenance: human | llm`.

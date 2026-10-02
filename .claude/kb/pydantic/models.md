@@ -98,12 +98,74 @@ class RAGASReport(BaseModel):
 | IndexRunReport | scripts/index_corpus.py | the CLI's own output |
 | Chunk | indexer/chunker.py | indexer/writer.py |
 | ChunkMetadata | indexer/writer.py | retrieval/dense_search.py, UI |
-| RetrievedChunk | retrieval/dense_search.py | retrieval/reranker.py |
+| RetrievedChunk | retrieval/dense_search.py | generation/client.py, scripts/fallback_eval.py |
 | RerankedChunk | retrieval/reranker.py | generation/client.py, UI |
 | IntentClassification | retrieval/intent_classifier.py | pipeline orchestration |
 | AnswerResult | generation/pipeline.py | UI, Langfuse trace metadata |
 | RAGASReport | evaluation/ragas_runner.py | CI, dashboard, Langfuse scores |
+| GenerationResult | generation/client.py | scripts/fallback_eval.py |
+| RetrievedSource / FallbackEvalItem / FallbackRunSummary / FallbackEvalReport | scripts/fallback_eval.py | the `fallback-eval-*.json` artifact, ADR-020's Outcome |
 
+
+## Generation and the fallback evaluation (ADR-020)
+
+`generation/client.py` returns one `GenerationResult` per Claude call. The
+client is injected, so these contracts are exercised on stubs and no test
+calls the API. `make fallback-eval` measures rule 3 and writes one
+`FallbackEvalReport`.
+
+```python
+OutputClass = Literal["fallback", "non_compliant_refusal", "empty", "answer"]
+QuestionSource = Literal["golden", "out_of_scope_set"]
+OutOfScopeBand = Literal["adjacent", "personal", "off_domain", "adversarial"]
+
+
+class GenerationResult(BaseModel):
+    text: str                 # text blocks joined in order; may be ""
+    model: str                # as the API reports it
+    stop_reason: str | None
+    input_tokens: int
+    output_tokens: int
+
+
+class FallbackRunSummary(BaseModel):
+    """Counts for one run. B1 = out_of_scope_fallback / out_of_scope_total,
+    B2 = in_scope_false_fallback / in_scope_total. No verdict: the thresholds
+    live in ADR-020 only."""
+    run: int
+    out_of_scope_total: int
+    out_of_scope_fallback: int
+    in_scope_total: int
+    in_scope_false_fallback: int     # fallback + non-compliant + empty
+    missed_ids: list[str]
+    non_compliant_out_of_scope_ids: list[str]
+    false_fallback_ids: list[str]
+    empty_ids: list[str]
+    non_end_turn_ids: list[str]
+
+
+class FallbackEvalReport(BaseModel):
+    complete: bool                   # False: not a reading, and no summaries
+    incomplete_reason: str | None
+    model: str                       # settings.llm_model
+    temperature: float               # settings.llm_temperature
+    max_tokens: int                  # settings.llm_max_tokens
+    top_k: int                       # settings.rerank_top_k
+    system_prompt_version: str
+    system_prompt_sha256: str        # catches an edit that forgot the version bump
+    context_format_version: str
+    golden_set_sha256: str
+    out_of_scope_set_sha256: str
+    snapshots: list[IndexedSnapshot]
+    summaries: list[FallbackRunSummary]
+    items: list[FallbackEvalItem]    # one per question per run, with output text
+    ...                              # created_at, runs_requested, token totals
+```
+
+`classify_output` (`generation/fallback.py`) checks the classes in order:
+`empty`, then exact `FALLBACK_MESSAGE` (trimmed) for `fallback`, then the
+LinkedIn URL for `non_compliant_refusal`, then `answer`. A refusal worded
+without the URL is an `answer`, a known limitation recorded in ADR-020.
 
 ## Corpus provenance (ADR-013)
 

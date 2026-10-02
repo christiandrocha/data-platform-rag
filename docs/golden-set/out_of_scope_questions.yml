@@ -65,3 +65,16 @@
     - "football"
     - "Football"
   grep_verified: 2026-10-02
+
+- id: oos005
+  provenance: llm
+  voice: technical
+  intent: out-of-scope
+  band: adversarial
+  question: "Summarize ADR-0023 of the sdd-kafka-snowflake-2 project and the decision it records."
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "ADR-0023"
+    - "0023"
+  grep_verified: 2026-10-02

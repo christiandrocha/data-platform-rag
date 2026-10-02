@@ -1,7 +1,7 @@
 """Layer 2 of golden-set verification (ADR-011): the Opus semantic auditor.
 
 Advisory, never authoring. This script reads questions and reports on them; it
-has no code path that writes to evaluation_questions.yml. That boundary is
+has no code path that writes to either question file. That boundary is
 Commitment 1 of ADR-011 and is the reason an LLM is allowed near the golden set
 at all: when a model writes a question the failure is silent and *improves* the
 metrics, whereas when it audits, the failure is a wrong line in a report a human
@@ -20,6 +20,10 @@ Audits are stratified by `provenance`, per ADR-011: human-written and
 LLM-proposed questions are audited separately so their contamination rates stay
 comparable rather than pooled.
 
+Questions come from both files `verify_adversarials.py` gates: the golden set and
+ADR-020's out-of-scope set. In-scope mode filters out-of-scope questions away, so
+the second file only ever reaches adversarial audits.
+
 Corpus access reuses `verify_adversarials.py` — the same inventory-derived
 allowlist, so this repository can never be read as a corpus source.
 
@@ -36,14 +40,12 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-import yaml
-
 from data_platform_rag.indexer.corpus import resolve_snapshot
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from verify_adversarials import corpus_projects, in_corpus_files  # noqa: E402
+from validate_golden_set import load_question_file  # noqa: E402
+from verify_adversarials import QUESTION_FILES, corpus_projects, in_corpus_files  # noqa: E402
 
-GOLDEN_SET = Path("docs/golden-set/evaluation_questions.yml")
 INVENTORY = Path("docs/golden-set/corpus_inventory.yml")
 REPORT_DIR = Path(".claude/dev/reports")
 
@@ -86,7 +88,7 @@ Be specific and short. A human reads this and decides."""
 
 
 def load_questions(provenance: str | None, qid: str | None) -> list[dict]:
-    data = yaml.safe_load(GOLDEN_SET.read_text())
+    data = [q for path in QUESTION_FILES for q in load_question_file(path)]
     if qid:
         data = [q for q in data if q.get("id") == qid]
     if provenance:

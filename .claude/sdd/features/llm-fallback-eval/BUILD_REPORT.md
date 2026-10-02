@@ -108,6 +108,15 @@ made.**
 7. **`measure()` catches every exception** (`noqa: BLE001`). This is deliberate:
    per D3, any failure after calls began makes the artifact incomplete, never
    silent.
+8. **Missed in BUILD, found at the first question batch (2026-10-02): the Layer 2
+   audit read only the golden set.** `scripts/audit_questions.py` loaded
+   `evaluation_questions.yml` alone, so `make audit-adversarials q=oos001` would
+   have found no question. The new set's Layer 2 audit, which DESIGN and ADR-016
+   require, could not have run. It now reads both files through
+   `verify_adversarials.QUESTION_FILES`, the list Layer 1 already uses, so the two
+   layers cannot drift apart. Three unit tests were added
+   (`tests/unit/test_audit_questions.py`). DESIGN's file table did not list the
+   script, which is how it was missed.
 
 ## RAGAS delta
 

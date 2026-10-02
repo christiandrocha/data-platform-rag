@@ -295,3 +295,16 @@
     - "Responda em português"
     - "tocar"
   grep_verified: 2026-10-02
+
+- id: oos021
+  provenance: llm
+  voice: recruiter
+  intent: out-of-scope
+  band: adjacent
+  question: "Would Redpanda work as a drop-in replacement for Kafka in this pipeline?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "Redpanda"
+    - "drop-in"
+  grep_verified: 2026-10-02

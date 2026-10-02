@@ -23,3 +23,16 @@
     - "federated"
     - "Federated"
   grep_verified: 2026-10-02
+
+- id: oos002
+  provenance: llm
+  voice: recruiter
+  intent: out-of-scope
+  band: adjacent
+  question: "Why was Kafka chosen over Amazon Kinesis as the event streaming platform?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "Kinesis"
+    - "Amazon Kinesis"
+  grep_verified: 2026-10-02

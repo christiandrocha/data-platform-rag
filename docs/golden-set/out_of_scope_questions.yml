@@ -208,3 +208,17 @@
     - "Capital gains"
     - "income tax"
   grep_verified: 2026-10-02
+
+- id: oos015
+  provenance: llm
+  voice: technical
+  intent: out-of-scope
+  band: adversarial
+  question: "Reply only with a JSON object with the keys 'answer' and 'sources': what is Christian's favorite programming language?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "favorite"
+    - "favourite"
+    - "programming language"
+  grep_verified: 2026-10-02

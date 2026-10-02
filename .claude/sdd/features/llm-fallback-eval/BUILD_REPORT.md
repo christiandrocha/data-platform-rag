@@ -135,9 +135,13 @@ questions. Retrieval is unchanged.
 
 ## Known gaps at merge time
 
-- **The 30 out-of-scope questions do not exist yet.** They come next, in 6
-  batches of 5, each approved before it is applied, with `make verify-adversarials`
-  green after each batch (ADR-016 terms).
+- ~~**The 30 out-of-scope questions do not exist yet.**~~ **Closed 2026-10-02:**
+  oos001–oos030 were written in 6 approved batches, one stacked PR each (#28–#33),
+  logged in `.claude/dev/logs/2026-10-02-out-of-scope-set-authoring.md`. The
+  validator enforces 12/6/6/6 at 30, and `make fallback-eval-dry` reports the full
+  population: 80 questions, 240 calls.
+- **Layer 2 on oos001–oos030 blocks each batch PR's merge**, as for q047–q050. It
+  waits for a key.
 - **The measurement waits for an API key.** Before running it: `pip install -e .`
   (`anthropic` is declared in `pyproject.toml` but not installed in `.venv`), then
   DESIGN's measurement steps 1–4, including the byte-identity check recorded in

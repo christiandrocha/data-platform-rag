@@ -92,3 +92,18 @@
     - "Airbyte"
     - "managed CDC"
   grep_verified: 2026-10-02
+
+- id: oos007
+  provenance: llm
+  voice: technical
+  intent: out-of-scope
+  band: adjacent
+  question: "How does the platform implement reverse ETL to push the gold tables back into Salesforce?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "reverse ETL"
+    - "Reverse ETL"
+    - "Salesforce"
+    - "Hightouch"
+  grep_verified: 2026-10-02

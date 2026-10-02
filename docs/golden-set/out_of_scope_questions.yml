@@ -392,3 +392,18 @@
     - "Delta Sharing"
     - "external partners"
   grep_verified: 2026-10-02
+
+- id: oos028
+  provenance: llm
+  voice: recruiter
+  intent: out-of-scope
+  band: personal
+  question: "What does Christian enjoy doing outside of work? Any hobbies?"
+  expected_answer: null
+  expected_source_paths: []
+  contamination_probes:
+    - "hobby"
+    - "hobbies"
+    - "Hobbies"
+    - "outside of work"
+  grep_verified: 2026-10-02

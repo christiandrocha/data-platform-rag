@@ -13,7 +13,7 @@ Reversals are documented in-place; superseded ADRs stay in the record.
 | ADR-005 | Cross-encoder reranking of the RRF top 20 | Rejected | 2026-09-21 |
 | ADR-006 | Out-of-scope fallback message design | Accepted; score gate superseded by ADR-019 | 2026-09-30 |
 | ADR-007 | Chunking strategy per source type | Accepted | 2026-09-14 |
-| ADR-008 | RAGAS in CI with regression threshold | Planned | — |
+| ADR-008 | The RAGAS runner: two stages, an Opus judge, no invented score | Planned | — |
 | ADR-009 | Langfuse for LLM observability | Accepted | 2026-09-10 |
 | ADR-010 | Pydantic v2 as the contract language | Accepted | 2026-09-10 |
 | ADR-011 | Golden set curation methodology | Accepted | 2026-09-14 |

@@ -1,4 +1,4 @@
-# BUILD REPORT: The product query path (PR 1 of 2)
+# BUILD REPORT: The product query path and its page
 
 ## Metadata
 
@@ -9,8 +9,8 @@
 | DESIGN | [DESIGN.md](DESIGN.md) |
 | ADR | [ADR-021](../../../../docs/adr/ADR-021-product-query-path.md), Planned |
 | Start date | 2026-10-05 |
-| End date | PR 1: 2026-10-05. PR 2 (the page) pending |
-| PR | PR 1: pending |
+| End date | 2026-10-05 (both PRs) |
+| PR | PR 1: #35 (merged). PR 2: pending |
 
 ## What was built (PR 1, the path)
 
@@ -54,6 +54,24 @@ and `sql/00`–`04` in the bootstrap boundary. README roadmap items 3–6. KB:
 `langfuse/traces-and-generations.md`, `langfuse/python-sdk.md`,
 `pydantic/models.md` and `pydantic/config-pattern.md`. `.env.example` gets
 `MAX_QUESTION_CHARS`.
+
+## What was built (PR 2, the page)
+
+- `data_platform_rag/ui/app.py`: the placeholder is replaced. It shows one form
+  (a text area capped at `settings.max_question_chars`), the `shown_text` of
+  every result, and a "Sources" list under an answer only. Sources are
+  deduplicated in rank order by project, path, ADR id and section. One caption
+  says questions are logged. With no key, it shows `st.info` and draws no form.
+  The page renders in `main()`, behind `if __name__ == "__main__"`, so the tests
+  can import `source_lines` without drawing anything.
+- `tests/unit/test_ui_app.py`: **new**, 10 tests. They use Streamlit's `AppTest`
+  with `answer()` and the SDK client faked: `source_lines`, no key, the cap and
+  the caption, an answer with sources, the four other results with their text
+  only, and a blank question.
+
+Two small choices DESIGN did not spell out. The question is stripped before
+`answer()`, so a trailing newline from the text area is not logged. A blank
+question shows `answer()`'s own `ValueError` message as a warning and runs nothing.
 
 ## What deviated from design
 
@@ -113,7 +131,9 @@ what ADR-020 measures and changes none of it.
   query waits for the key (DEFINE's manual acceptance test).
 - **No trace sent to a real Langfuse project.** The 2.x call shape was read from
   the SDK source and exercised on fakes only.
-- **The page is PR 2.** `ui/app.py` is still the placeholder.
+- **The page has not answered a real question.** The DESIGN's manual check with
+  a key (one in-scope and one out-of-scope question through `make dev`, then
+  read the row and the trace) waits for the key.
 
 ## Verification
 
@@ -125,3 +145,13 @@ what ADR-020 measures and changes none of it.
 - [x] `make bootstrap` twice against the populated local database: exit 0 both
       times, 304 chunks intact, `query_log` at 22 columns
 - [x] `make deploy`'s gate on the real ADR-020: refused (Status: Planned), exit 1
+
+PR 2:
+- [x] `make lint`: exit 0
+- [x] `make test`: 353 passed, 0 skipped, exit 0. `test_ui_app.py` also passes
+      from a directory with no `.env` and no `ANTHROPIC_API_KEY`, as in CI
+- [x] Manual check without a key: `streamlit run` starts headless, and the
+      health check returns ok with no error in the log. Rendered with the real
+      local settings (the `.env` key is empty), the page shows the title and
+      "Generation is not configured", and draws no form. This was rendered through
+      `AppTest`, not looked at in a browser

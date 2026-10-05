@@ -26,5 +26,6 @@ Reversals are documented in-place; superseded ADRs stay in the record.
 | ADR-018 | Dense-only retrieval | Accepted | 2026-09-30 |
 | ADR-019 | Cosine-similarity separability decides the out-of-scope gate | Accepted (not separable) | 2026-09-30 |
 | ADR-020 | The LLM's rule 3 as the out-of-scope gate, measured | Planned | — |
+| ADR-021 | The product query path: one row, one trace, gated publication | Planned | — |
 
 **Legend**: Accepted (implemented as decided) · Planned (decision pending BUILD phase) · Rejected (measured and not adopted; kept as record) · Superseded · Resolved.

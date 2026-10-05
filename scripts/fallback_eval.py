@@ -171,14 +171,15 @@ def require_key(settings: Settings) -> str:
 
 
 def make_client(api_key: str) -> LLMClient:
-    """The real SDK client. The only place this script imports `anthropic`."""
+    """The real SDK client, from `generation.sdk`, with a preflight message."""
+    from data_platform_rag.generation.sdk import build_client
+
     try:
-        import anthropic
+        return build_client(api_key)
     except ImportError as exc:
         raise PreflightError(
             "the `anthropic` package is not installed (pip install -e .)."
         ) from exc
-    return anthropic.Anthropic(api_key=api_key)
 
 
 # ─── Retrieval ───────────────────────────────────────────────────────────────
@@ -211,17 +212,7 @@ def retrieve_contexts(
 
 
 def to_sources(chunks: list[RetrievedChunk]) -> list[RetrievedSource]:
-    return [
-        RetrievedSource(
-            chunk_id=c.id,
-            source_project=c.metadata.source_project,
-            source_path=c.metadata.source_path,
-            source_anchor=c.metadata.source_anchor,
-            adr_id=c.metadata.adr_id,
-            dense_distance=c.dense_distance,
-        )
-        for c in chunks
-    ]
+    return [RetrievedSource.from_chunk(c) for c in chunks]
 
 
 # ─── Measurement ─────────────────────────────────────────────────────────────

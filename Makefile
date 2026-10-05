@@ -76,6 +76,7 @@ bootstrap:
 	$(COMPOSE) exec -T postgres psql -U dpr -d data_platform_rag -f - < sql/01_schema.sql
 	$(COMPOSE) exec -T postgres psql -U dpr -d data_platform_rag -f - < sql/02_indexes.sql
 	$(COMPOSE) exec -T postgres psql -U dpr -d data_platform_rag -f - < sql/03_corpus_snapshot.sql
+	$(COMPOSE) exec -T postgres psql -U dpr -d data_platform_rag -f - < sql/04_query_log_product.sql
 	@echo "✓ Postgres up, extensions installed, schema created"
 
 # DESTRUCTIVE. The only path to a DROP. Separated from bootstrap by ADR-013:
@@ -190,6 +191,9 @@ test:
 precommit:
 	pre-commit run --all-files
 
+# Refuses unless ADR-020 is Accepted (ADR-021). The page answers visitors only
+# under rule 3, and rule 3 is unmeasured until then.
 deploy:
+	$(PYTHON) scripts/check_deploy_gate.py
 	git push origin main
 	@echo "✓ Pushed. Streamlit Cloud will pick up the change."

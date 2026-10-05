@@ -3,6 +3,14 @@
 **Status**: Accepted
 **Date**: 2026-09-10
 
+> **Amended 2026-10-05 by ADR-021.** The span list under Decision (intent
+> classification, hybrid retrieval, reranking, threshold check, generation)
+> names stages that no longer run: no classifier is built, ADR-018 made
+> retrieval dense-only, ADR-005 rejected the reranker and ADR-019 superseded the
+> threshold. The trace now has a `dense_retrieval` span and an `anthropic_call`
+> generation (ADR-021). Every other decision below stands. The text is kept as
+> written.
+
 ## Context
 
 `data-platform-rag` calls Anthropic Claude Sonnet at runtime for both intent

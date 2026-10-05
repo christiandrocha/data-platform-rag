@@ -15,7 +15,6 @@ from data_platform_rag.contracts import (
     IntentClassification,
     RAGASAggregate,
     RAGASReport,
-    RerankedChunk,
     RetrievedChunk,
 )
 
@@ -91,59 +90,47 @@ def test_intent_classification_rejects_unknown_collection():
         )
 
 
-# ─── RetrievedChunk / RerankedChunk inheritance ──────────────────────────────
+# ─── AnswerResult (ADR-021) ──────────────────────────────────────────────────
 
 
-def test_reranked_chunk_extends_retrieved_chunk():
-    meta = ChunkMetadata(
-        source_project="sdd-kafka-snowflake-2",
-        source_type="adr",
-        source_path="x.md",
-        chunk_index=0,
-        token_count=100,
-    )
-    rc = RerankedChunk(
-        id=1,
-        content="foo",
-        metadata=meta,
-        dense_distance=0.1,
-        dense_rank=1,
-        rerank_score=0.9,
-    )
-    assert isinstance(rc, RetrievedChunk)
-    assert rc.rerank_score == 0.9
-
-
-# ─── AnswerResult ────────────────────────────────────────────────────────────
+def answer_result(**overrides) -> AnswerResult:
+    fields = {
+        "question": "Why one unified Lakeflow pipeline?",
+        "failed": False,
+        "output_class": "answer",
+        "shown_text": "Because Unity Catalog attributes lineage by notebook path...",
+        "sources": [],
+        "generation": None,
+        "system_prompt_version": "v1.1.0",
+        "context_format_version": "v1.0.0",
+        "latency_ms": 1523,
+        "logged": True,
+    }
+    return AnswerResult(**(fields | overrides))
 
 
 def test_answer_result_valid():
-    meta = ChunkMetadata(
-        source_project="sdd-kafka-databricks",
-        source_type="adr",
-        source_path="docs/adr/ADR-007.md",
-        chunk_index=0,
-        token_count=500,
-    )
-    reranked = [
-        RerankedChunk(
-            id=42, content="x", metadata=meta,
-            dense_distance=0.1, dense_rank=1, rerank_score=0.95,
-        )
-    ]
-    result = AnswerResult(
-        query="Why one unified Lakeflow pipeline?",
-        intent=IntentClassification(
-            intent="decision", collections=["decisions"], confidence=0.87
-        ),
-        top_chunks=reranked,
-        top_score=0.95,
-        fallback_fired=False,
-        answer_text="Because Unity Catalog attributes lineage by notebook path...",
-        latency_ms=1523,
-    )
+    result = answer_result()
     assert result.latency_ms == 1523
     assert result.fallback_fired is False
+    assert result.trace_id is None
+
+
+def test_answer_result_rejects_an_unknown_output_class():
+    with pytest.raises(ValidationError):
+        answer_result(output_class="partial")
+
+
+def test_answer_result_rejects_negative_latency():
+    with pytest.raises(ValidationError):
+        answer_result(latency_ms=-1)
+
+
+def test_answer_result_has_no_pre_adr_018_fields():
+    """`intent`, `top_chunks` and `top_score` described stages that do not run."""
+    assert {"intent", "top_chunks", "top_score", "fallback_fired"}.isdisjoint(
+        AnswerResult.model_fields
+    )
 
 
 # ─── RAGAS ──────────────────────────────────────────────────────────────────

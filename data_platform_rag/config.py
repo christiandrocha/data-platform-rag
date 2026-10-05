@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     rerank_top_k: int = Field(default=3, ge=1, le=20)
     hnsw_ef_search: int = Field(default=40, ge=10, le=500)
 
+    # Product query path (ADR-021). A public page spends money per question, so
+    # the question's length is capped before retrieval. The floor is the longest
+    # evaluated question (216 characters, oos025): a cap below it would refuse a
+    # question ADR-020 measures, so it is a startup error, not a setting.
+    max_question_chars: int = Field(default=500, ge=216)
+
     # Local models (no external cost)
     embedding_model: str = "BAAI/bge-small-en-v1.5"
     reranker_model: str = "BAAI/bge-reranker-base"

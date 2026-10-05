@@ -2,33 +2,43 @@
 
 ## Structure per query
 
+Implemented in `observability/tracing.py`, called by `generation/answer.py`
+(ADR-021, which supersedes ADR-009's span list).
+
 ```
 Trace: "query"
-  metadata: {intent, collections_searched, fallback_fired, latency_ms}
-  input:  user query text
-  output: final answer (or fallback message)
+  input:  the visitor's question
+  output: what the visitor saw (answer, FALLBACK_MESSAGE, or the failed message)
+  metadata: {output_class, fallback_fired, failed, system_prompt_version,
+             context_format_version, latency_ms}
 
-  ├─ Span: "intent_classification"
-  │    input: query text
-  │    output: {intent: "decision", confidence: 0.87}
-  │    latency: ~200ms
-  │
   ├─ Span: "dense_retrieval"
-  │    input: {query, collections, top_k}
-  │    output: [chunk_id, dense_distance] * 20
-  │    metadata: {dense_hits}
-  │    latency: ~50ms
+  │    input: {question, top_k: settings.rerank_top_k}
+  │    output: [[chunk_id, dense_distance], ...]
   │
-  │    (no reranking span: ADR-005 rejected the reranker; the top
-  │     settings.rerank_top_k chunks go to the Generation as they are)
+  │    (no intent-classification span: no classifier is built, and retrieval
+  │     searches both collections. No reranking span: ADR-005 rejected the
+  │     reranker. No threshold span: ADR-019 superseded the score gate.)
   │
-  └─ Generation: "anthropic_call" (every query; no score gate since ADR-019)
-       model: claude-sonnet-4-6
-       input: {system_prompt, context, query}
-       output: generated answer
-       usage: {input_tokens, output_tokens, total_cost}
-       latency: 1-3s
+  └─ Generation: "anthropic_call" (every query that retrieved something)
+       model: as the API reports it (settings.llm_model requested)
+       input: the user message (context + question)
+       output: the raw output text
+       usage_details: {input, output} tokens
+       metadata: {stop_reason}
 ```
+
+A failed query still gets its trace: the span or generation that did not happen
+is absent, and `failed: true` is in the trace metadata.
+
+**Never block on Langfuse.** Every `QueryTrace` method catches `Exception`, logs
+one warning and returns. On the no-op client (`LANGFUSE_ENABLED=false`) the
+same calls run and the trace id is `None`.
+
+**The Postgres twin.** The same query writes one `query_log` row (`sql/04`):
+`output_class`, `failed`, `error`, `model`, prompt and context versions, tokens,
+`stop_reason`, `corpus_commits` (`project@sha` of the retrieved chunks),
+`embedding_model` and `trace_id`, which joins the row to this trace.
 
 ## Why this hierarchy
 

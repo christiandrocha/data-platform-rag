@@ -35,6 +35,7 @@ SCHEMA_FILES = (
     "sql/01_schema.sql",
     "sql/02_indexes.sql",
     "sql/03_corpus_snapshot.sql",
+    "sql/04_query_log_product.sql",
 )
 
 

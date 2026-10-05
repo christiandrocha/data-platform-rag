@@ -158,7 +158,7 @@ checkout" had only ever been demonstrated on the author's machine.
   canonical input instead of a local path override.
 - `make lint` clean, `make test` **172 passing**, both green in CI.
 
-**What is next**, in dependency order — none of this exists yet:
+**What is next**, in dependency order:
 
 1. **Retrieval quality.** Retrieval runs (`make ask`, `make retrieval-recall`),
    and three attempts to fix its top-3 order were measured and rejected:
@@ -168,11 +168,17 @@ checkout" had only ever been demonstrated on the author's machine.
    score the fallback can use (ADR-006), then the embedding (ADR-004).
 2. **Reranking** (ADR-005) — rejected 2026-09-21; the setting is kept for a
    re-measurement when the golden set grows.
-3. **Generation.** The system prompt is versioned in `generation/prompt.py`.
-   There is no Anthropic client and no fallback logic behind it.
-4. **Intent classifier**, then the pipeline that joins the four stages above.
-5. **Langfuse wiring.** Only the no-op fallback exists today.
-6. **Streamlit UI** — currently a placeholder page that says so.
+3. **Generation.** `generation/client.py` calls Claude under the versioned
+   system prompt, and `generation/fallback.py` classifies the output (ADR-020).
+   `generation/answer.py` is the product path: one `query_log` row and one
+   Langfuse trace per query (ADR-021). No real answer exists yet: the first one
+   waits for an API key, as ADR-020's measurement does.
+4. **Intent classifier.** Nothing measured asks for it: the product path
+   searches both collections (ADR-018).
+5. **Langfuse wiring.** `observability/tracing.py` emits the trace and swallows
+   every Langfuse error (ADR-021). It has not yet sent a trace to a real project.
+6. **Streamlit UI** — the page over `answer()`, ADR-021's second PR. It is not
+   published until ADR-020 is Accepted: `make deploy` refuses before that.
 7. **RAGAS runner** (ADR-008, still Planned), and the golden set from 5 to 50.
 
 **Known gaps and unverified claims**:

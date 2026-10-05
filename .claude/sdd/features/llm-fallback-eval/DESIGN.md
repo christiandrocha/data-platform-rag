@@ -445,6 +445,11 @@ preflight message and leaves `.claude/dev/reports/` unchanged.
 
 **The measurement (when a key exists):**
 
+0. `pip install -e .` (`anthropic` is declared but not installed in `.venv`), then
+   Layer 2 on the 34 LLM-written out-of-scope questions, q047–q050 and
+   oos001–oos030: `make audit-adversarials q=<id>`. A finding the author accepts
+   fixes the question before step 1. Moved here from each batch's merge on
+   2026-10-02 (authoring log).
 1. `make golden-set-check`, `make verify-adversarials`, `make index-corpus-verify`.
 2. ADR-020's rule checked byte-identical to DEFINE's, with the extraction command
    recorded in ADR-020.

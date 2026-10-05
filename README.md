@@ -177,8 +177,9 @@ checkout" had only ever been demonstrated on the author's machine.
    searches both collections (ADR-018).
 5. **Langfuse wiring.** `observability/tracing.py` emits the trace and swallows
    every Langfuse error (ADR-021). It has not yet sent a trace to a real project.
-6. **Streamlit UI** — the page over `answer()`, ADR-021's second PR. It is not
-   published until ADR-020 is Accepted: `make deploy` refuses before that.
+6. **Streamlit UI.** `ui/app.py` is the page over `answer()` (ADR-021). Without a
+   key it shows "not configured" and runs nothing. It is not published until
+   ADR-020 is Accepted: `make deploy` refuses before that.
 7. **RAGAS runner** (ADR-008, still Planned), and the golden set from 5 to 50.
 
 **Known gaps and unverified claims**:

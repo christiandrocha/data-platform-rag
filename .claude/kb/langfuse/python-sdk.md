@@ -20,19 +20,22 @@ def get_client() -> Langfuse:
     )
 ```
 
-## Decorator on the pipeline entry point
+## The pipeline entry point: explicit calls, not the decorator
+
+`generation/answer.py :: answer()` does not use `@observe`. It calls
+`observability/tracing.py`, which wraps the 2.x low-level API (`trace`,
+`trace.span`, `trace.generation`, `trace.update`, `trace.id`) and catches every
+exception in one place (ADR-021). The decorator would put Langfuse inside the
+call path, where an SDK error is harder to contain.
 
 ```python
-from langfuse.decorators import observe
-
-@observe(name="query")
-async def answer_query(query: str, session_id: str | None = None) -> AnswerResult:
-    intent = await classify_intent(query)
-    candidates = await dense_search(query, intent.collections)
-    top_chunks = candidates[: settings.rerank_top_k]  # no reranker (ADR-005)
-    # No score gate (ADR-019): the LLM returns FALLBACK_MESSAGE under rule 3.
-    answer = await generate(query, top_chunks)  # @observe(as_type="generation")
-    return AnswerResult(fallback_fired=(answer == FALLBACK_MESSAGE), ...)
+trace = (tracer or get_tracer()).start(question)        # never raises
+chunks = retrieve(question, top_k=settings.rerank_top_k, conn=conn)
+trace.retrieval(question=..., top_k=..., chunks=chunks, start_time=..., end_time=...)
+result = generate(question, chunks, client)             # no score gate (ADR-019)
+trace.generation(user_message=..., result=result, start_time=..., end_time=...)
+output_class = classify_output(result.text)             # ADR-020's four classes
+trace.finish(shown_text=..., output_class=..., ...)     # after the query_log row
 ```
 
 ## Flushing before shutdown

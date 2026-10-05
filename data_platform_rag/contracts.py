@@ -187,12 +187,6 @@ class RetrievedChunk(BaseModel):
     dense_rank: int = Field(ge=1)
 
 
-class RerankedChunk(RetrievedChunk):
-    """RetrievedChunk augmented with cross-encoder rerank score."""
-
-    rerank_score: float
-
-
 # ─── Intent classification ───────────────────────────────────────────────────
 
 
@@ -204,24 +198,6 @@ class IntentClassification(BaseModel):
     intent: Intent
     collections: list[Collection] = Field(min_length=1)
     confidence: float = Field(ge=0.0, le=1.0)
-
-
-# ─── Final query result ──────────────────────────────────────────────────────
-
-
-class AnswerResult(BaseModel):
-    """The final result of a query, whether answered or fallback-fired."""
-
-    model_config = ConfigDict(frozen=True)
-
-    query: str
-    intent: IntentClassification
-    top_chunks: list[RerankedChunk]
-    top_score: float
-    fallback_fired: bool
-    answer_text: str
-    langfuse_trace_id: str | None = None
-    latency_ms: int = Field(ge=0)
 
 
 # ─── RAGAS evaluation ────────────────────────────────────────────────────────
@@ -285,6 +261,19 @@ class RetrievedSource(BaseModel):
     source_anchor: str | None
     adr_id: str | None
     dense_distance: float = Field(ge=0.0)
+
+    @classmethod
+    def from_chunk(cls, chunk: RetrievedChunk) -> RetrievedSource:
+        """The citation fields of one retrieved chunk. Shared by ADR-020 and ADR-021."""
+        meta = chunk.metadata
+        return cls(
+            chunk_id=chunk.id,
+            source_project=meta.source_project,
+            source_path=meta.source_path,
+            source_anchor=meta.source_anchor,
+            adr_id=meta.adr_id,
+            dense_distance=chunk.dense_distance,
+        )
 
 
 class FallbackEvalItem(BaseModel):
@@ -356,3 +345,36 @@ class FallbackEvalReport(BaseModel):
     items: list[FallbackEvalItem]
     total_input_tokens: int = Field(ge=0)
     total_output_tokens: int = Field(ge=0)
+
+
+# ─── Product query path (ADR-021) ────────────────────────────────────────────
+
+
+class AnswerResult(BaseModel):
+    """One product query: what the visitor saw, and what produced it.
+
+    Replaces the pre-ADR-018 shape (`intent`, reranked chunks, `top_score`),
+    which described stages that do not run and had no importer.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    question: str
+    failed: bool
+    output_class: OutputClass | None  # None only when failed
+    shown_text: str  # exactly what the page displays
+    sources: list[RetrievedSource]  # rank order; the page shows them only for "answer"
+    generation: GenerationResult | None  # None when the query failed before a response
+    system_prompt_version: str
+    context_format_version: str
+    latency_ms: int = Field(ge=0)
+    trace_id: str | None = None
+    logged: bool  # the query_log insert succeeded
+
+    @property
+    def fallback_fired(self) -> bool:
+        """The visitor got no answer: ADR-020's B2 grouping. A failure is not a fallback.
+
+        A property, not a field, so it cannot disagree with `output_class`.
+        """
+        return self.output_class in ("fallback", "non_compliant_refusal", "empty")

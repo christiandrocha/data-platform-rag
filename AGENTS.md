@@ -78,8 +78,8 @@ data-platform-rag/
 │   ├── contracts.py            # pydantic models for all inter-module boundaries
 │   ├── indexer/                # loader, chunker, embedder, writer
 │   ├── retrieval/              # dense_search, pipeline (intent_classifier, reranker: not built)
-│   ├── generation/             # prompt, client, fallback logic
-│   ├── observability/          # langfuse_client, decorators, no-op fallback
+│   ├── generation/             # prompt, client, fallback classifier, answer (product path, ADR-021)
+│   ├── observability/          # langfuse_client (no-op fallback), tracing (one trace per query)
 │   ├── evaluation/             # ragas_runner, golden_set_loader, langfuse_scorer
 │   └── ui/                     # streamlit app
 │
@@ -246,7 +246,7 @@ What an agent working on this repo must **NEVER** do:
   one transaction** — never `ON CONFLICT DO UPDATE`, which leaves orphan rows
   when a later commit produces fewer chunks, and an orphan is retrievable text
   that is no longer in the corpus (ADR-013).
-- **Never put a `DROP` in the bootstrap path.** `sql/00`–`03` are create-only and
+- **Never put a `DROP` in the bootstrap path.** `sql/00`–`04` are create-only and
   idempotent; every destructive statement lives in `sql/90_reset.sql`, reached
   only by `make reset-db`. `make bootstrap` must stay safe to run against a
   populated database (ADR-013).

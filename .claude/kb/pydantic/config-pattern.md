@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     hybrid_top_k: int = Field(default=20, ge=1, le=100)
     rerank_top_k: int = Field(default=3, ge=1, le=20)
     hnsw_ef_search: int = Field(default=40, ge=10, le=500)
+    max_question_chars: int = Field(default=500, ge=216)  # ADR-021; floor = longest evaluated question
 
     # Models (local)
     embedding_model: str = "BAAI/bge-small-en-v1.5"

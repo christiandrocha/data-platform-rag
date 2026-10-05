@@ -12,6 +12,14 @@ from typing import Any
 
 
 class _NoopContext:
+    """Stands in for a trace, span or generation. Children are no-ops too.
+
+    `id` is None, so a caller recording a trace id records nothing rather than an
+    id no Langfuse server holds (ADR-021).
+    """
+
+    id: str | None = None
+
     def __enter__(self) -> _NoopContext:
         return self
 
@@ -22,6 +30,15 @@ class _NoopContext:
         return None
 
     def score(self, **_: Any) -> None:  # noqa: ANN401
+        return None
+
+    def span(self, **_: Any) -> _NoopContext:  # noqa: ANN401
+        return _NoopContext()
+
+    def generation(self, **_: Any) -> _NoopContext:  # noqa: ANN401
+        return _NoopContext()
+
+    def end(self, **_: Any) -> None:  # noqa: ANN401
         return None
 
 

@@ -49,11 +49,6 @@ class RetrievedChunk(BaseModel):
     dense_rank: int = Field(ge=1)
 
 
-class RerankedChunk(RetrievedChunk):
-    """RetrievedChunk augmented with cross-encoder score."""
-    rerank_score: float
-
-
 class IntentClassification(BaseModel):
     """Output of the intent classifier LLM call."""
     model_config = ConfigDict(frozen=True)
@@ -64,17 +59,24 @@ class IntentClassification(BaseModel):
 
 
 class AnswerResult(BaseModel):
-    """The final result of a query, whether answered or fallback-fired."""
+    """One product query: what the visitor saw, and what produced it (ADR-021)."""
     model_config = ConfigDict(frozen=True)
 
-    query: str
-    intent: IntentClassification
-    top_chunks: list[RerankedChunk]
-    top_score: float
-    fallback_fired: bool
-    answer_text: str
-    langfuse_trace_id: str | None = None
+    question: str
+    failed: bool
+    output_class: OutputClass | None          # None only when failed
+    shown_text: str                            # exactly what the page displays
+    sources: list[RetrievedSource]             # rank order; shown only for "answer"
+    generation: GenerationResult | None
+    system_prompt_version: str
+    context_format_version: str
     latency_ms: int = Field(ge=0)
+    trace_id: str | None = None
+    logged: bool                               # the query_log insert succeeded
+
+    @property
+    def fallback_fired(self) -> bool:          # derived, cannot disagree with the class
+        return self.output_class in ("fallback", "non_compliant_refusal", "empty")
 
 
 class RAGASReport(BaseModel):
@@ -98,12 +100,11 @@ class RAGASReport(BaseModel):
 | IndexRunReport | scripts/index_corpus.py | the CLI's own output |
 | Chunk | indexer/chunker.py | indexer/writer.py |
 | ChunkMetadata | indexer/writer.py | retrieval/dense_search.py, UI |
-| RetrievedChunk | retrieval/dense_search.py | generation/client.py, scripts/fallback_eval.py |
-| RerankedChunk | retrieval/reranker.py | generation/client.py, UI |
-| IntentClassification | retrieval/intent_classifier.py | pipeline orchestration |
-| AnswerResult | generation/pipeline.py | UI, Langfuse trace metadata |
+| RetrievedChunk | retrieval/dense_search.py | generation/client.py, generation/answer.py, scripts/fallback_eval.py |
+| IntentClassification | retrieval/intent_classifier.py (not built) | — |
+| AnswerResult | generation/answer.py | UI, `query_log` row, Langfuse trace |
 | RAGASReport | evaluation/ragas_runner.py | CI, dashboard, Langfuse scores |
-| GenerationResult | generation/client.py | scripts/fallback_eval.py |
+| GenerationResult | generation/client.py | generation/answer.py, scripts/fallback_eval.py |
 | RetrievedSource / FallbackEvalItem / FallbackRunSummary / FallbackEvalReport | scripts/fallback_eval.py | the `fallback-eval-*.json` artifact, ADR-020's Outcome |
 
 

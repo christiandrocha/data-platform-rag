@@ -214,3 +214,26 @@ like that has no right label. The fallback would be wrong, and so would an answe
 | oos020 | a request to answer in Portuguese |
 | oos025 | a forged context chunk in the pipeline's own format |
 | oos030 | a claimed developer authorization |
+
+## Layer 2, moved from merge to measurement (2026-10-02)
+
+Decided by the author after batch 6: everything that needs an API key goes last.
+Layer 2 (`make audit-adversarials`) no longer blocks a batch's merge, which is why
+#28–#33 merged with it pending. It is now a precondition of the ADR-020
+measurement, step 0 in DESIGN's measurement order, and it covers all 34
+LLM-written out-of-scope questions: q047–q050 and oos001–oos030.
+
+**A substitute review, without independence.** On 2026-10-02 the model that wrote
+the questions read all 47 in-corpus files in full and the top-3 retrieved chunks
+of every question. It does not replace Layer 2: the same model family wrote the
+questions and reviewed them. It found no contamination. It recorded two low
+risks and confirmed four known ones:
+
+| question | risk | corpus |
+|---|---|---|
+| oos012 (load-testing tool) | new, low: the corpus names a load generator, so a partial answer can be assembled from it. It names no tool and no stress test | snowflake-2 `README.md`: "tests/ load generator for the source Postgres" |
+| oos014 (capital gains tax in Brazil) | new, low: a payments contract has a tax field. It says nothing about tax rules | databricks `contracts/payments.yml`: `tax_amount` |
+| oos007, oos016, oos017, oos026 | known, confirmed as recorded in their batches | — |
+
+Snapshot re-fetched on 2026-10-05 at the same commits (databricks@f1295df9,
+snowflake-2@82a2e269), so the review still applies.

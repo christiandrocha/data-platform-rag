@@ -94,6 +94,21 @@ class RecordingLangfuse:
         return observation
 
 
+@pytest.fixture(autouse=True)
+def stub_api_key(monkeypatch: pytest.MonkeyPatch):
+    """`answer()` reads `get_settings()`, which requires `anthropic_api_key`.
+
+    Locally the gitignored `.env` supplies it, so these tests passed here and
+    failed in CI (PR #35). The client is a stub and no test calls the API, so the
+    key is always a stand-in, never the developer's real one. DATABASE_URL is
+    left alone: the conftest's `_test` database is what `connect_fn` opens.
+    """
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-not-a-real-key")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
 @pytest.fixture
 def product(conn, test_dsn, monkeypatch: pytest.MonkeyPatch):
     """A seeded index, an empty query_log, and a hand-chosen query vector."""

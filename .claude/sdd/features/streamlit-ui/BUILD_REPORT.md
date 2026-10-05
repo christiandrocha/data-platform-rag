@@ -74,6 +74,14 @@ and `sql/00`–`04` in the bootstrap boundary. README roadmap items 3–6. KB:
    still be recorded. DESIGN D6 named only the insert's failure.
 5. **`answer()` closes its connection itself**, after the insert. The page
    therefore opens one connection per query, as DESIGN chose.
+6. **CI caught what the local run hid.** The nine tests in
+   `tests/integration/test_answer_postgres.py` reach `get_settings()`, which
+   requires `anthropic_api_key`. The gitignored `.env` supplied it locally, so
+   343 passed here and 9 failed on PR #35. This is the bug class
+   `tests/unit/conftest.py` already guards against for the unit suite. The file
+   now stubs the key with an autouse fixture. The fixture is scoped to this file
+   because the other integration tests read the real `Settings` on purpose.
+   Reproduced and verified by running the file from a directory with no `.env`.
 
 ## Found during BUILD, not changed: the local `.env` has `RERANK_TOP_K=5`
 

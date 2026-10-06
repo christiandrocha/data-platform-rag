@@ -3,6 +3,14 @@
 **Status**: Accepted
 **Date**: 2026-09-14
 
+> **Note 2026-10-05, ADR-008 written.** Both preconditions below are met by
+> ADR-008 as planned: every run records the golden set's last commit SHA and
+> whether the file was modified, `compare` refuses reports with different SHAs
+> and says why, and `make eval` / `make eval-ci` run `verify_adversarials.py`
+> first and stop on a non-zero exit. "ADR-008's CI regression threshold" does not
+> exist yet: ADR-008 chooses it from a noise measurement that needs the API key.
+> This ADR's decisions are unchanged.
+
 ## Context
 
 `docs/golden-set/evaluation_questions.yml` is not test data. It is the measuring

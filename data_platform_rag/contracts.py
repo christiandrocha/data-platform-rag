@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import AnyUrl, BaseModel, ConfigDict, Field
+from pydantic import AnyUrl, BaseModel, ConfigDict, Field, model_validator
 
 # ─── Type aliases ────────────────────────────────────────────────────────────
 
@@ -21,6 +21,8 @@ ADRStatus = Literal["accepted", "superseded", "resolved", "planned"]
 
 # Fallback evaluation (ADR-020). `empty` is DEFINE Amendment 1's fourth class.
 OutputClass = Literal["fallback", "non_compliant_refusal", "empty", "answer"]
+# Who asked (ADR-008): the page, or `make eval` stage 1. Written to query_log.origin.
+Origin = Literal["visitor", "eval"]
 QuestionSource = Literal["golden", "out_of_scope_set"]
 OutOfScopeBand = Literal["adjacent", "personal", "off_domain", "adversarial"]
 
@@ -200,36 +202,6 @@ class IntentClassification(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
 
 
-# ─── RAGAS evaluation ────────────────────────────────────────────────────────
-
-
-class RAGASReport(BaseModel):
-    """One row per golden-set question after make eval."""
-
-    model_config = ConfigDict(frozen=True)
-
-    question_id: str
-    faithfulness: float = Field(ge=0.0, le=1.0)
-    answer_relevance: float = Field(ge=0.0, le=1.0)
-    context_precision: float = Field(ge=0.0, le=1.0)
-    context_recall: float = Field(ge=0.0, le=1.0)
-    fallback_correct: bool
-
-
-class RAGASAggregate(BaseModel):
-    """Aggregate RAGAS metrics across the whole golden set. What CI reports."""
-
-    model_config = ConfigDict(frozen=True)
-
-    n_questions: int = Field(gt=0)
-    faithfulness_mean: float = Field(ge=0.0, le=1.0)
-    answer_relevance_mean: float = Field(ge=0.0, le=1.0)
-    context_precision_mean: float = Field(ge=0.0, le=1.0)
-    context_recall_mean: float = Field(ge=0.0, le=1.0)
-    fallback_accuracy: float = Field(ge=0.0, le=1.0)
-    reports: list[RAGASReport]
-
-
 # ─── Generation ──────────────────────────────────────────────────────────────
 
 
@@ -378,3 +350,176 @@ class AnswerResult(BaseModel):
         A property, not a field, so it cannot disagree with `output_class`.
         """
         return self.output_class in ("fallback", "non_compliant_refusal", "empty")
+
+
+# ─── RAGAS evaluation (ADR-008) ──────────────────────────────────────────────
+#
+# Stage 1 (`make eval` generate) writes an `EvalRun`; stage 2 (score) reads it and
+# writes an `EvalReport`. The models before ADR-008 required four scores for every
+# question, which the out-of-scope questions cannot have (no reference answer).
+
+GoldenIntent = Literal["decision", "architecture", "comparison", "out-of-scope"]
+MetricName = Literal["faithfulness", "answer_relevancy", "context_precision", "context_recall"]
+METRIC_NAMES: tuple[MetricName, ...] = (
+    "faithfulness",
+    "answer_relevancy",
+    "context_precision",
+    "context_recall",
+)
+
+
+class GoldenQuestion(BaseModel):
+    """One `evaluation_questions.yml` entry, the fields a run uses."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    intent: GoldenIntent
+    question: str
+    expected_answer: str | None  # None exactly for out-of-scope
+
+    @property
+    def in_scope(self) -> bool:
+        return self.intent != "out-of-scope"
+
+    @model_validator(mode="after")
+    def _reference_matches_scope(self) -> GoldenQuestion:
+        if self.in_scope != bool(self.expected_answer):
+            raise ValueError(
+                f"{self.id}: an in-scope question needs an expected_answer, "
+                "and an out-of-scope one has none"
+            )
+        return self
+
+
+class EvalProvenance(BaseModel):
+    """What a run was made from. ADR-011 commitment 2, plus what ADR-008 compares."""
+
+    model_config = ConfigDict(frozen=True)
+
+    created_at: datetime
+    golden_set_sha: str  # last commit of evaluation_questions.yml
+    golden_set_dirty: bool  # the file differs from that commit
+    corpus_commits: list[str]  # project@sha
+    embedding_model: str
+    generation_model: str
+    system_prompt_version: str
+    context_format_version: str
+    rerank_top_k: int = Field(gt=0)
+
+
+class EvalRecord(BaseModel):
+    """One question's answer, and the text it was built from."""
+
+    model_config = ConfigDict(frozen=True)
+
+    question: GoldenQuestion
+    result: AnswerResult
+    contexts: list[str]  # chunk text, in `result.sources` order
+
+    @model_validator(mode="after")
+    def _one_context_per_source(self) -> EvalRecord:
+        if len(self.contexts) != len(self.result.sources):
+            raise ValueError(
+                f"{self.question.id}: {len(self.contexts)} contexts "
+                f"for {len(self.result.sources)} sources"
+            )
+        return self
+
+
+class EvalRun(BaseModel):
+    """What stage 1 writes: a run file."""
+
+    model_config = ConfigDict(frozen=True)
+
+    run_id: str
+    provenance: EvalProvenance
+    records: list[EvalRecord]
+
+
+class MetricValue(BaseModel):
+    """A score, or the reason there is none. Never both, never neither (ADR-008 D5)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    value: float | None = Field(default=None, ge=0.0, le=1.0)
+    error: str | None = None
+
+    @model_validator(mode="after")
+    def _exactly_one(self) -> MetricValue:
+        if (self.value is None) == (self.error is None):
+            raise ValueError("a MetricValue holds exactly one of value and error")
+        return self
+
+
+class RAGASReport(BaseModel):
+    """One question's scores."""
+
+    model_config = ConfigDict(frozen=True)
+
+    question_id: str
+    intent: GoldenIntent
+    trace_id: str | None
+    metrics: dict[MetricName, MetricValue] | None  # None for out-of-scope
+    fallback_fired: bool  # recorded in scope too: a wrong fallback is a finding
+    fallback_correct: bool | None  # out-of-scope only
+    pushed_to_langfuse: bool
+
+
+class MetricAggregate(BaseModel):
+    """A mean over the questions that have a score, and how many that is."""
+
+    model_config = ConfigDict(frozen=True)
+
+    mean: float | None = Field(default=None, ge=0.0, le=1.0)  # None when nothing scored
+    n_scored: int = Field(ge=0)
+    n_expected: int = Field(ge=0)
+
+
+class JudgeConfig(BaseModel):
+    """What scored a run. Two reports with different judges are not comparable."""
+
+    model_config = ConfigDict(frozen=True)
+
+    model: str
+    max_tokens: int = Field(gt=0)
+    temperature: float = Field(ge=0.0, le=1.0)
+    ragas_version: str
+    answer_relevancy_strictness: int = Field(ge=1)
+
+
+class RAGASAggregate(BaseModel):
+    """The run's numbers. Every mean carries its coverage."""
+
+    model_config = ConfigDict(frozen=True)
+
+    metrics: dict[MetricName, MetricAggregate]
+    fallback_correct: int = Field(ge=0)
+    n_out_of_scope: int = Field(ge=0)
+    in_scope_fallbacks: int = Field(ge=0)  # in-scope questions that got the fallback
+    n_in_scope: int = Field(ge=0)
+
+
+class EvalReport(BaseModel):
+    """What stage 2 writes, next to the run file it scored."""
+
+    model_config = ConfigDict(frozen=True)
+
+    run_id: str
+    run_file: str
+    provenance: EvalProvenance
+    judge: JudgeConfig
+    scored_at: datetime
+    reports: list[RAGASReport]
+    aggregate: RAGASAggregate
+
+
+class ReportComparison(BaseModel):
+    """`compare(a, b)`: B's means minus A's, or why the two cannot be compared."""
+
+    model_config = ConfigDict(frozen=True)
+
+    comparable: bool
+    refusals: list[str]  # why not comparable; empty when comparable
+    differences: list[str]  # what differs in what was evaluated (model, prompt, k)
+    deltas: dict[MetricName, float | None]  # None when either side has no mean

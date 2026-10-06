@@ -112,6 +112,7 @@ class QueryTrace:
         system_prompt_version: str,
         context_format_version: str,
         latency_ms: int,
+        origin: str = "visitor",
     ) -> None:
         if self._observation is None:
             return
@@ -125,6 +126,7 @@ class QueryTrace:
                     "system_prompt_version": system_prompt_version,
                     "context_format_version": context_format_version,
                     "latency_ms": latency_ms,
+                    "origin": origin,
                 },
             )
         except Exception as exc:  # noqa: BLE001 - never block on Langfuse

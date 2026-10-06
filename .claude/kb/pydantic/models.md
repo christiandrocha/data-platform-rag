@@ -79,17 +79,29 @@ class AnswerResult(BaseModel):
         return self.output_class in ("fallback", "non_compliant_refusal", "empty")
 
 
+class MetricValue(BaseModel):                 # exactly one of value / error (ADR-008 D5)
+    value: float | None = Field(default=None, ge=0.0, le=1.0)
+    error: str | None = None
+
+
 class RAGASReport(BaseModel):
-    """Aggregate output of make eval — one row per golden-set question."""
+    """One golden-set question's scores (ADR-008)."""
     model_config = ConfigDict(frozen=True)
 
     question_id: str
-    faithfulness: float = Field(ge=0.0, le=1.0)
-    answer_relevance: float = Field(ge=0.0, le=1.0)
-    context_precision: float = Field(ge=0.0, le=1.0)
-    context_recall: float = Field(ge=0.0, le=1.0)
-    fallback_correct: bool
+    intent: GoldenIntent
+    trace_id: str | None
+    metrics: dict[MetricName, MetricValue] | None   # None for out-of-scope
+    fallback_fired: bool
+    fallback_correct: bool | None                    # out-of-scope only
+    pushed_to_langfuse: bool
 ```
+
+The run file is an `EvalRun` (provenance + one `EvalRecord` per question: the
+`GoldenQuestion`, its `AnswerResult`, its context texts). The report is an
+`EvalReport` (provenance, `JudgeConfig`, the `RAGASReport`s, a `RAGASAggregate`
+whose every mean carries `n_scored`/`n_expected`). `ReportComparison` is what
+`compare` returns. `Origin = Literal["visitor", "eval"]` is `query_log.origin`.
 
 ## Where each model is used
 
@@ -103,7 +115,10 @@ class RAGASReport(BaseModel):
 | RetrievedChunk | retrieval/dense_search.py | generation/client.py, generation/answer.py, scripts/fallback_eval.py |
 | IntentClassification | retrieval/intent_classifier.py (not built) | — |
 | AnswerResult | generation/answer.py | UI, `query_log` row, Langfuse trace |
-| RAGASReport | evaluation/ragas_runner.py | CI, dashboard, Langfuse scores |
+| GoldenQuestion | evaluation/golden_set_loader.py | evaluation/generate.py |
+| EvalProvenance / EvalRecord / EvalRun | evaluation/generate.py | evaluation/ragas_runner.py (the run file) |
+| MetricValue / RAGASReport / RAGASAggregate / JudgeConfig / EvalReport | evaluation/ragas_runner.py, evaluation/report.py | `make eval-compare`, `make eval-baseline`, Langfuse scores |
+| ReportComparison | evaluation/report.py | scripts/run_evaluation.py `compare` |
 | GenerationResult | generation/client.py | generation/answer.py, scripts/fallback_eval.py |
 | RetrievedSource / FallbackEvalItem / FallbackRunSummary / FallbackEvalReport | scripts/fallback_eval.py | the `fallback-eval-*.json` artifact, ADR-020's Outcome |
 

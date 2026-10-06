@@ -1,6 +1,6 @@
 .PHONY: help bootstrap reset-db dev down fetch-corpus index-corpus index-corpus-dry \
 	index-corpus-verify reindex ask retrieval-recall fallback-eval fallback-eval-dry \
-	verify-indexes eval eval-ci golden-set-check golden-set-next \
+	verify-indexes eval eval-ci eval-score eval-compare eval-baseline golden-set-check golden-set-next \
 	golden-set-next-architecture golden-set-next-comparison-pair \
 	verify-adversarials audit-adversarials langfuse-check langfuse-flush \
 	lint test precommit deploy
@@ -51,8 +51,11 @@ help:
 	@echo "  make verify-indexes   EXPLAIN ANALYZE top queries against baseline"
 	@echo ""
 	@echo "Evaluation:"
-	@echo "  make eval             Run RAGAS, push scores to Langfuse (if enabled)"
-	@echo "  make eval-ci          Eval + persist results with timestamp"
+	@echo "  make eval             Contamination gate, generate, RAGAS score, push to Langfuse"
+	@echo "  make eval-ci          The same, writing to .claude/dev/reports/"
+	@echo "  make eval-score run=F Score (or resume scoring) an existing run file"
+	@echo "  make eval-compare a=X b=Y  Per-metric delta, or why not comparable"
+	@echo "  make eval-baseline run=R   Copy a report + its run file to docs/eval-baselines/"
 	@echo "  make golden-set-check Validate golden-set YAML schema"
 	@echo ""
 	@echo "Observability:"
@@ -77,6 +80,7 @@ bootstrap:
 	$(COMPOSE) exec -T postgres psql -U dpr -d data_platform_rag -f - < sql/02_indexes.sql
 	$(COMPOSE) exec -T postgres psql -U dpr -d data_platform_rag -f - < sql/03_corpus_snapshot.sql
 	$(COMPOSE) exec -T postgres psql -U dpr -d data_platform_rag -f - < sql/04_query_log_product.sql
+	$(COMPOSE) exec -T postgres psql -U dpr -d data_platform_rag -f - < sql/05_query_log_origin.sql
 	@echo "✓ Postgres up, extensions installed, schema created"
 
 # DESTRUCTIVE. The only path to a DROP. Separated from bootstrap by ADR-013:
@@ -144,11 +148,26 @@ fallback-eval-dry:
 verify-indexes:
 	$(COMPOSE) exec -T postgres psql -U dpr -d data_platform_rag -f - < sql/99_verify.sql
 
-eval:
-	$(PYTHON) scripts/run_evaluation.py
+# ADR-008. The contamination gate runs first (ADR-011): a failure stops the run
+# before anything is generated. Runs land in .claude/dev/reports/ (gitignored);
+# a baseline is committed through eval-baseline.
+eval: verify-adversarials
+	$(PYTHON) scripts/run_evaluation.py all
 
-eval-ci:
-	$(PYTHON) scripts/run_evaluation.py --output .claude/dev/reports/ragas-$$(date +%Y%m%d-%H%M%S).json
+eval-ci: verify-adversarials
+	$(PYTHON) scripts/run_evaluation.py all --out-dir .claude/dev/reports
+
+eval-score:
+	@test -n "$(run)" || (echo "usage: make eval-score run=RUN_FILE" && exit 2)
+	$(PYTHON) scripts/run_evaluation.py score $(run)
+
+eval-compare:
+	@test -n "$(a)" -a -n "$(b)" || (echo "usage: make eval-compare a=REPORT b=REPORT" && exit 2)
+	$(PYTHON) scripts/run_evaluation.py compare $(a) $(b)
+
+eval-baseline:
+	@test -n "$(run)" || (echo "usage: make eval-baseline run=REPORT" && exit 2)
+	$(PYTHON) scripts/run_evaluation.py baseline $(run)
 
 golden-set-check:
 	$(PYTHON) scripts/validate_golden_set.py

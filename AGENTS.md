@@ -19,9 +19,11 @@
 - **LLM**: Anthropic Claude Sonnet via API (retrieval-augmented generation only)
 - **Contracts**: pydantic v2 for all inter-module boundaries — config, chunk metadata, retrieval results, LLM output, RAGAS reports
 - **Observability**: Langfuse (cloud free tier initially) — traces every query, tracks Claude cost, receives RAGAS scores as feedback
-- **Evaluation**: RAGAS framework — golden set of 50 questions, runs in CI on every push, scores pushed to Langfuse
+- **Evaluation**: RAGAS 0.4 (ADR-008) — golden set of 50 questions, two stages (generate through
+  `answer()`, then score), Claude Opus as judge, scores pushed to Langfuse. On demand, not on push,
+  until a regression threshold is measured
 - **UI**: Streamlit
-- **Orchestration**: Makefile (29 targets: bootstrap, index, eval, dev, deploy, and observability targets)
+- **Orchestration**: Makefile (32 targets: bootstrap, index, eval, dev, deploy, and observability targets)
 - **Quality**: ruff, pytest, yamllint, bandit, pre-commit
 - **CI/CD**: GitHub Actions (lint, test, ragas, streamlit deploy)
 - **Methodology**: AgentSpec/SDD — six-phase workflow (brainstorm → define → design → build → iterate → ship)
@@ -53,7 +55,7 @@ data-platform-rag/
 ├── CLAUDE.md → AGENTS.md       # Symlink for Claude Code
 ├── README.md                   # Public-facing overview + RAGAS badges + Langfuse public dashboard link
 ├── LICENSE                     # MIT
-├── Makefile                    # 29 operational targets
+├── Makefile                    # 32 operational targets
 ├── pyproject.toml              # ruff + pytest + pydantic/pydantic-settings + langfuse
 ├── docker-compose.yml          # postgres+pgvector for local dev
 ├── Dockerfile                  # streamlit runtime
@@ -80,7 +82,7 @@ data-platform-rag/
 │   ├── retrieval/              # dense_search, pipeline (intent_classifier, reranker: not built)
 │   ├── generation/             # prompt, client, fallback classifier, answer (product path, ADR-021)
 │   ├── observability/          # langfuse_client (no-op fallback), tracing (one trace per query)
-│   ├── evaluation/             # ragas_runner, golden_set_loader, langfuse_scorer
+│   ├── evaluation/             # golden_set_loader, generate, ragas_runner, report, langfuse_scorer (ADR-008)
 │   └── ui/                     # streamlit app
 │
 ├── sql/                        # DDL and index definitions
@@ -181,8 +183,11 @@ make fallback-eval              # measure rule 3, the LLM's out-of-scope gate (A
 make fallback-eval-dry          # print the LLM inputs fallback-eval would send; no key, no call
 
 # Evaluation
-make eval                       # run RAGAS against golden set, push scores to Langfuse
-make eval-ci                    # eval + write results to .claude/dev/reports/ragas-{timestamp}.json
+make eval                       # contamination gate, generate, RAGAS score, push to Langfuse (needs a key)
+make eval-ci                    # the same, run file + report in .claude/dev/reports/
+make eval-score run=FILE        # score or resume scoring a run file, without new answers
+make eval-compare a=X b=Y       # per-metric delta, or why two reports are not comparable
+make eval-baseline run=REPORT   # copy a report + its run file to docs/eval-baselines/ (commit them)
 make golden-set-check           # validate golden-set/*.yml schema + ADR coverage
 make golden-set-next            # next uncovered ADR in the seeded walk order
 make golden-set-next-architecture        # next uncovered README section / contract / macro
@@ -246,7 +251,7 @@ What an agent working on this repo must **NEVER** do:
   one transaction** — never `ON CONFLICT DO UPDATE`, which leaves orphan rows
   when a later commit produces fewer chunks, and an orphan is retrievable text
   that is no longer in the corpus (ADR-013).
-- **Never put a `DROP` in the bootstrap path.** `sql/00`–`04` are create-only and
+- **Never put a `DROP` in the bootstrap path.** `sql/00`–`05` are create-only and
   idempotent; every destructive statement lives in `sql/90_reset.sql`, reached
   only by `make reset-db`. `make bootstrap` must stay safe to run against a
   populated database (ADR-013).

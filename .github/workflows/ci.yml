@@ -36,10 +36,15 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The golden set's version is its last commit (ADR-011), which a
+          # shallow clone cannot report; the runner refuses one (ADR-008).
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install -e ".[dev]"
+      # `eval` too, so the RAGAS tests run here instead of skipping (ADR-008 D4).
+      - run: pip install -e ".[dev,eval]"
       - name: Apply schema
         env:
           PGPASSWORD: dpr_ci
@@ -48,6 +53,8 @@ jobs:
           psql -h localhost -U dpr -d data_platform_rag -f sql/01_schema.sql
           psql -h localhost -U dpr -d data_platform_rag -f sql/02_indexes.sql
           psql -h localhost -U dpr -d data_platform_rag -f sql/03_corpus_snapshot.sql
+          psql -h localhost -U dpr -d data_platform_rag -f sql/04_query_log_product.sql
+          psql -h localhost -U dpr -d data_platform_rag -f sql/05_query_log_origin.sql
       - run: pytest -q
         env:
           DATABASE_URL: postgresql://dpr:dpr_ci@localhost:5432/data_platform_rag

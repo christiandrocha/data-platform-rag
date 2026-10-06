@@ -180,7 +180,10 @@ checkout" had only ever been demonstrated on the author's machine.
 6. **Streamlit UI.** `ui/app.py` is the page over `answer()` (ADR-021). Without a
    key it shows "not configured" and runs nothing. It is not published until
    ADR-020 is Accepted: `make deploy` refuses before that.
-7. **RAGAS runner** (ADR-008, still Planned), and the golden set from 5 to 50.
+7. **RAGAS runner** (ADR-008). `make eval` generates every golden-set answer
+   through `answer()` into a run file, then scores it with RAGAS 0.4, Claude Opus
+   as the judge. Built and tested on a fake judge. No score exists until the key
+   does, and no regression threshold until its noise measurement has run.
 
 **Known gaps and unverified claims**:
 
@@ -193,20 +196,17 @@ checkout" had only ever been demonstrated on the author's machine.
   thin for the fallback, which ADR-019 moved onto the LLM: 5 negatives cannot
   calibrate or verify much, so measuring rule 3 will need more out-of-scope
   questions than the golden set holds.
-- **`ragas.yml` runs on demand only, because it has nothing to evaluate.**
-  `scripts/run_evaluation.py` is a stub until step 7 above lands, so the push
-  trigger was removed rather than left to produce a signal that means nothing
-  either way. The workflow itself is correct now — it fetches the corpus, applies
-  all four SQL files and indexes — and three real defects in it were fixed on
-  2026-09-21, having gone unnoticed while it failed at the first step. The
-  `ci.yml` lint and test jobs are green and are the ones that mean something
-  right now.
+- **`ragas.yml` runs on demand only, because no regression threshold exists.**
+  The runner is real (ADR-008), but the threshold is chosen from a noise
+  measurement (2 generations, each scored twice) that needs the API key. Until
+  then a push trigger could only report deltas nobody can judge. The `ci.yml`
+  lint and test jobs are the ones that mean something right now.
 - **The out-of-scope fallback rests on the LLM, and that is unmeasured.** ADR-019
   measured top-1 cosine similarity over the golden set: the highest out-of-scope
   question (0.7360, q005) outscores 14 of the 45 in-scope ones, so no threshold
   separates them. ADR-006's score gate was superseded, and rule 3 of the system
-  prompt now sends the fallback. Whether the LLM does that correctly
-  (`fallback_accuracy`) needs `make eval`, which does not run yet.
+  prompt now sends the fallback. Whether the LLM does that correctly is ADR-020's
+  measurement (`make fallback-eval`), which needs the API key.
   `settings.fallback_threshold` and the constant retrieval fields (`rrf_score`,
   `sparse_score`, `sparse_rank`) were removed in ADR-019 Amendment 1.
 - **`HYBRID_TOP_K` / `settings.hybrid_top_k` keeps its old name.** It bounds the
@@ -290,7 +290,7 @@ cp .env.example .env
 
 make bootstrap        # start postgres+pgvector, run migrations
 make index-corpus     # clone target repos, chunk, embed, upsert
-make eval             # run RAGAS against golden set (pushes scores to Langfuse if enabled)
+make eval             # generate + RAGAS-score the golden set (needs the key; ADR-008)
 make dev              # streamlit at http://localhost:8501
 ```
 

@@ -13,7 +13,8 @@ from data_platform_rag.contracts import (
     IndexedSnapshot,
     IndexRunReport,
     IntentClassification,
-    RAGASAggregate,
+    MetricAggregate,
+    MetricValue,
     RAGASReport,
     RetrievedChunk,
 )
@@ -136,29 +137,31 @@ def test_answer_result_has_no_pre_adr_018_fields():
 # ─── RAGAS ──────────────────────────────────────────────────────────────────
 
 
-def test_ragas_report_bounded():
-    with pytest.raises(ValidationError):
-        RAGASReport(
-            question_id="q001",
-            faithfulness=1.1,  # > 1.0
-            answer_relevance=0.8,
-            context_precision=0.7,
-            context_recall=0.9,
-            fallback_correct=True,
-        )
+def test_a_metric_value_is_bounded_to_0_1():
+    """ADR-008: a score outside [0, 1] is not a score."""
+    with pytest.raises(ValidationError, match="less than or equal to 1"):
+        MetricValue(value=1.1)
+    assert MetricValue(value=1.0).value == 1.0
 
 
-def test_ragas_aggregate_requires_positive_n():
-    with pytest.raises(ValidationError):
-        RAGASAggregate(
-            n_questions=0,  # gt=0
-            faithfulness_mean=0.8,
-            answer_relevance_mean=0.8,
-            context_precision_mean=0.8,
-            context_recall_mean=0.8,
-            fallback_accuracy=1.0,
-            reports=[],
-        )
+def test_a_metric_aggregate_mean_is_bounded_and_counts_are_not_negative():
+    with pytest.raises(ValidationError, match="less than or equal to 1"):
+        MetricAggregate(mean=1.5, n_scored=1, n_expected=1)
+    with pytest.raises(ValidationError, match="greater than or equal to 0"):
+        MetricAggregate(mean=None, n_scored=-1, n_expected=45)
+
+
+def test_an_out_of_scope_ragas_report_has_no_metrics():
+    report = RAGASReport(
+        question_id="q005",
+        intent="out-of-scope",
+        trace_id=None,
+        metrics=None,
+        fallback_fired=True,
+        fallback_correct=True,
+        pushed_to_langfuse=False,
+    )
+    assert report.metrics is None
 
 
 # ─── Corpus provenance (ADR-013) ─────────────────────────────────────────────

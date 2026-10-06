@@ -33,6 +33,7 @@ from data_platform_rag.config import get_settings
 from data_platform_rag.contracts import (
     AnswerResult,
     GenerationResult,
+    Origin,
     OutputClass,
     RetrievedChunk,
     RetrievedSource,
@@ -67,7 +68,7 @@ _INSERT_QUERY_LOG = """
         query_text, retrieved_ids, retrieved_scores, fallback_fired, answer_length,
         latency_ms, output_class, failed, error, model, system_prompt_version,
         context_format_version, input_tokens, output_tokens, stop_reason,
-        corpus_commits, embedding_model, trace_id
+        corpus_commits, embedding_model, trace_id, origin
     )
     VALUES (
         %(query_text)s, %(retrieved_ids)s::bigint[], %(retrieved_scores)s::real[],
@@ -81,7 +82,7 @@ _INSERT_QUERY_LOG = """
         (SELECT min(s.embedding_model)
            FROM chunks c JOIN corpus_snapshot s ON s.id = c.snapshot_id
           WHERE c.id = ANY(%(retrieved_ids)s::bigint[])),
-        %(trace_id)s
+        %(trace_id)s, %(origin)s
     )
 """
 
@@ -112,11 +113,15 @@ def answer(
     *,
     connect_fn: ConnectFn | None = None,
     tracer: QueryTracer | None = None,
+    origin: Origin = "visitor",
 ) -> AnswerResult:
     """Answer one visitor question, and record it once in Postgres and Langfuse.
 
     Raises only ValueError, for a question `validate_question` rejects. Every
     other failure becomes `failed=True` with `FAILED_MESSAGE`.
+
+    `origin` marks who asked, in the row and the trace: the page leaves it at
+    `"visitor"`, and `make eval` stage 1 passes `"eval"` (ADR-008).
     """
     settings = get_settings()
     validate_question(question, settings.max_question_chars)
@@ -165,7 +170,7 @@ def answer(
         logged=False,
     )
     try:
-        logged = _log_query(conn, connect_fn, unlogged, error)
+        logged = _log_query(conn, connect_fn, unlogged, error, origin)
     finally:
         _close(conn)
     result = unlogged.model_copy(update={"logged": logged})
@@ -178,6 +183,7 @@ def answer(
         system_prompt_version=result.system_prompt_version,
         context_format_version=result.context_format_version,
         latency_ms=result.latency_ms,
+        origin=origin,
     )
     return result
 
@@ -220,6 +226,7 @@ def _log_query(
     connect_fn: ConnectFn,
     result: AnswerResult,
     error: str | None,
+    origin: Origin,
 ) -> bool:
     """Write the query's one `query_log` row. Never raises (DESIGN D6)."""
     generation = result.generation
@@ -240,6 +247,7 @@ def _log_query(
         "output_tokens": generation.output_tokens if generation else None,
         "stop_reason": generation.stop_reason if generation else None,
         "trace_id": result.trace_id,
+        "origin": origin,
     }
     opened: psycopg.Connection | None = None
     try:

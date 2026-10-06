@@ -1,9 +1,8 @@
 name: ragas
 
-# On demand only, until ADR-008 lands. `scripts/run_evaluation.py` is still a
-# stub that evaluates nothing, so a push trigger could only produce a red X for
-# a gap the README already documents (step 7), or -- worse, once the steps below
-# were fixed -- a green tick meaning "the stub ran".
+# On demand only (ADR-008, Decision 7). The runner exists, but no regression
+# threshold does: it is chosen from a noise measurement that needs the API key.
+# A push trigger before that could only report deltas nobody can judge.
 on:
   workflow_dispatch:
 
@@ -24,6 +23,10 @@ jobs:
           --health-interval 5s
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The golden set's SHA is its last commit (ADR-011); a shallow clone
+          # cannot report it, and the runner refuses one.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -36,6 +39,8 @@ jobs:
           psql -h localhost -U dpr -d data_platform_rag -f sql/01_schema.sql
           psql -h localhost -U dpr -d data_platform_rag -f sql/02_indexes.sql
           psql -h localhost -U dpr -d data_platform_rag -f sql/03_corpus_snapshot.sql
+          psql -h localhost -U dpr -d data_platform_rag -f sql/04_query_log_product.sql
+          psql -h localhost -U dpr -d data_platform_rag -f sql/05_query_log_origin.sql
       - name: Fetch corpus
         # ADR-012: the snapshot under /tmp/dpr-corpus-* is what index_corpus.py
         # reads, and a fresh runner has none. Both corpus repos are public, so
@@ -45,13 +50,16 @@ jobs:
         env:
           DATABASE_URL: postgresql://dpr:dpr_ci@localhost:5432/data_platform_rag
         run: python scripts/index_corpus.py
+      - name: Contamination gate (ADR-011)
+        run: python scripts/verify_adversarials.py
       - name: Run RAGAS
         env:
           DATABASE_URL: postgresql://dpr:dpr_ci@localhost:5432/data_platform_rag
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: python scripts/run_evaluation.py --output ragas-report.json
-      - name: Upload report
+        run: python scripts/run_evaluation.py all --out-dir eval-out
+      - name: Upload run file and report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ragas-report
-          path: ragas-report.json
+          path: eval-out/

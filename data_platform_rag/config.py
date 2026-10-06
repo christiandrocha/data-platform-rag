@@ -43,6 +43,15 @@ class Settings(BaseSettings):
     # question ADR-020 measures, so it is a startup error, not a setting.
     max_question_chars: int = Field(default=500, ge=216)
 
+    # RAGAS judge (ADR-008). Not the generator: a model judging its own output
+    # tends to score it more kindly. judge_max_tokens is not measured: RAGAS's
+    # default 1024 truncates structured output by its own docstring, and a
+    # truncated reply is recorded as a missing value, never a score. The report
+    # records all three, so an override cannot change a reading silently.
+    judge_model: str = "claude-opus-5-5"
+    judge_max_tokens: int = Field(default=4096, ge=1)
+    answer_relevancy_strictness: int = Field(default=3, ge=1)  # RAGAS's default
+
     # Local models (no external cost)
     embedding_model: str = "BAAI/bge-small-en-v1.5"
     reranker_model: str = "BAAI/bge-reranker-base"

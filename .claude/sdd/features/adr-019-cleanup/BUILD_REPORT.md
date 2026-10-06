@@ -10,7 +10,7 @@
 | ADR | [ADR-019](../../../../docs/adr/ADR-019-similarity-separability-decides-the-fallback-gate.md) Amendment 1 (no new ADR, author 2026-09-30) |
 | Start date | 2026-09-30 |
 | End date | 2026-09-30 |
-| PR | not opened yet |
+| PR | [#26](https://github.com/christiandrocha/data-platform-rag/pull/26), merged by rebase 2026-10-02 |
 
 ## What was built
 

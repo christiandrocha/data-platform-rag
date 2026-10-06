@@ -10,7 +10,7 @@
 | ADR | [ADR-019](../../../../docs/adr/ADR-019-similarity-separability-decides-the-fallback-gate.md), **Accepted, branch "not separable"**, 2026-09-30. Supersedes ADR-006's score gate |
 | Start date | 2026-09-30 |
 | End date | 2026-09-30 |
-| PR | not opened yet |
+| PR | [#25](https://github.com/christiandrocha/data-platform-rag/pull/25), merged by rebase 2026-10-02 |
 
 ## Outcome in one paragraph
 

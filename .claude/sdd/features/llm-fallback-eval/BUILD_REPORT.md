@@ -10,7 +10,7 @@
 | ADR | [ADR-020](../../../../docs/adr/ADR-020-llm-rule-3-as-the-out-of-scope-gate.md), Planned |
 | Start date | 2026-10-02 |
 | End date | — (code done 2026-10-02. The 30 questions and the measurement remain) |
-| PR | — |
+| PR | [#27](https://github.com/christiandrocha/data-platform-rag/pull/27) (the code), merged by rebase 2026-10-02. The out-of-scope set: [#28](https://github.com/christiandrocha/data-platform-rag/pull/28)–[#33](https://github.com/christiandrocha/data-platform-rag/pull/33), 2026-10-02. Follow-up: [#34](https://github.com/christiandrocha/data-platform-rag/pull/34), 2026-10-05 |
 
 ## What was built
 

@@ -10,8 +10,8 @@
 | ADR | [ADR-011](../../../../docs/adr/ADR-011-golden-set-curation.md) — Accepted 2026-09-14 |
 | Themes | [INTERVIEWER_THEMES.md](./INTERVIEWER_THEMES.md) |
 | Start date | 2026-09-14 (tooling slice 1), resumed 2026-09-22 |
-| End date | 2026-09-22 (tooling); the 45 questions are not written |
-| PR | pending |
+| End date | 2026-09-22 (tooling); the 45 questions were written 2026-09-25 to 2026-10-02 |
+| PR | [#8](https://github.com/christiandrocha/data-platform-rag/pull/8) (the tooling), merged by rebase 2026-09-22. The 45 questions: [#9](https://github.com/christiandrocha/data-platform-rag/pull/9)–[#22](https://github.com/christiandrocha/data-platform-rag/pull/22), merged by rebase 2026-09-25 to 2026-10-02 |
 
 ## Outcome in one paragraph
 

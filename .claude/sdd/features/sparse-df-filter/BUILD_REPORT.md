@@ -10,7 +10,7 @@
 | ADR | [ADR-017](../../../../docs/adr/ADR-017-df-filtered-or-for-the-sparse-side.md), **Rejected** 2026-09-30 |
 | Start date | 2026-09-30 |
 | End date | 2026-09-30 |
-| PR | not opened yet |
+| PR | [#23](https://github.com/christiandrocha/data-platform-rag/pull/23), merged by rebase 2026-10-02 |
 
 ## Outcome in one paragraph
 

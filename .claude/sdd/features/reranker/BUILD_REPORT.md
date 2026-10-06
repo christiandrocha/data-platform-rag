@@ -10,7 +10,7 @@
 | ADR | [ADR-005](../../../../docs/adr/ADR-005-cross-encoder-reranking.md) — **Rejected** |
 | Start date | 2026-09-21 |
 | End date | 2026-09-21 |
-| PR | pending |
+| PR | [#7](https://github.com/christiandrocha/data-platform-rag/pull/7), merged by rebase 2026-09-22 |
 
 ## Outcome in one paragraph
 

@@ -10,7 +10,7 @@
 | ADR | [ADR-018](../../../../docs/adr/ADR-018-dense-only-retrieval.md), **Accepted** 2026-09-30. Supersedes ADR-003 |
 | Start date | 2026-09-30 |
 | End date | 2026-09-30 |
-| PR | not opened yet |
+| PR | [#24](https://github.com/christiandrocha/data-platform-rag/pull/24), merged by rebase 2026-10-02 |
 
 ## Outcome in one paragraph
 

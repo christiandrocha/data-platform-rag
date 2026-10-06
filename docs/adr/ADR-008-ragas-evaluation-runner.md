@@ -1,7 +1,9 @@
 # ADR-008 — The RAGAS runner: two stages, an Opus judge, no invented score
 
-**Status**: Planned — 2026-10-05. Accepted when BUILD lands. The regression
-threshold is chosen after the measurement in Decision 7, and recorded here in place
+**Status**: Accepted — 2026-10-06, when BUILD landed ([#37](https://github.com/christiandrocha/data-platform-rag/pull/37)).
+Planned 2026-10-05. The regression threshold is chosen after the measurement in
+Decision 7, and recorded here in place. No score exists yet: the runner has not
+run against a real judge
 **Date**: 2026-10-05
 
 ## Context

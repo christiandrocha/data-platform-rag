@@ -7,10 +7,10 @@
 | Feature | streamlit-ui |
 | DEFINE | [DEFINE.md](DEFINE.md) |
 | DESIGN | [DESIGN.md](DESIGN.md) |
-| ADR | [ADR-021](../../../../docs/adr/ADR-021-product-query-path.md), Planned |
+| ADR | [ADR-021](../../../../docs/adr/ADR-021-product-query-path.md), Accepted 2026-10-05 |
 | Start date | 2026-10-05 |
 | End date | 2026-10-05 (both PRs) |
-| PR | PR 1: #35 (merged). PR 2: pending |
+| PR | PR 1: [#35](https://github.com/christiandrocha/data-platform-rag/pull/35), PR 2: [#36](https://github.com/christiandrocha/data-platform-rag/pull/36), both merged by rebase 2026-10-05 |
 
 ## What was built (PR 1, the path)
 

@@ -1,6 +1,8 @@
 # ADR-021 — The product query path: one row, one trace, gated publication
 
-**Status**: Planned — 2026-10-05. Accepted when BUILD lands
+**Status**: Accepted — 2026-10-05, when BUILD landed ([#35](https://github.com/christiandrocha/data-platform-rag/pull/35),
+[#36](https://github.com/christiandrocha/data-platform-rag/pull/36)). Planned 2026-10-05. Publication still waits for
+ADR-020, as the Decision requires. No real answer has run through the path yet
 **Date**: 2026-10-05
 
 ## Context

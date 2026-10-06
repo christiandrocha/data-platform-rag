@@ -13,7 +13,7 @@ Reversals are documented in-place; superseded ADRs stay in the record.
 | ADR-005 | Cross-encoder reranking of the RRF top 20 | Rejected | 2026-09-21 |
 | ADR-006 | Out-of-scope fallback message design | Accepted; score gate superseded by ADR-019 | 2026-09-30 |
 | ADR-007 | Chunking strategy per source type | Accepted | 2026-09-14 |
-| ADR-008 | The RAGAS runner: two stages, an Opus judge, no invented score | Planned | — |
+| ADR-008 | The RAGAS runner: two stages, an Opus judge, no invented score | Accepted; threshold pending its measurement | 2026-10-06 |
 | ADR-009 | Langfuse for LLM observability | Accepted | 2026-09-10 |
 | ADR-010 | Pydantic v2 as the contract language | Accepted | 2026-09-10 |
 | ADR-011 | Golden set curation methodology | Accepted | 2026-09-14 |
@@ -26,6 +26,6 @@ Reversals are documented in-place; superseded ADRs stay in the record.
 | ADR-018 | Dense-only retrieval | Accepted | 2026-09-30 |
 | ADR-019 | Cosine-similarity separability decides the out-of-scope gate | Accepted (not separable) | 2026-09-30 |
 | ADR-020 | The LLM's rule 3 as the out-of-scope gate, measured | Planned | — |
-| ADR-021 | The product query path: one row, one trace, gated publication | Planned | — |
+| ADR-021 | The product query path: one row, one trace, gated publication | Accepted; publication waits for ADR-020 | 2026-10-05 |
 
 **Legend**: Accepted (implemented as decided) · Planned (decision pending BUILD phase) · Rejected (measured and not adopted; kept as record) · Superseded · Resolved.

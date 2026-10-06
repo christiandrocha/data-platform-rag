@@ -7,10 +7,10 @@
 | Feature | ragas-runner |
 | DEFINE | [DEFINE.md](DEFINE.md) |
 | DESIGN | [DESIGN.md](DESIGN.md) |
-| ADR | [ADR-008](../../../../docs/adr/ADR-008-ragas-evaluation-runner.md), Planned |
+| ADR | [ADR-008](../../../../docs/adr/ADR-008-ragas-evaluation-runner.md), Accepted 2026-10-06 |
 | Start date | 2026-10-05 |
 | End date | 2026-10-05 |
-| PR | pending |
+| PR | [#37](https://github.com/christiandrocha/data-platform-rag/pull/37), merged by rebase 2026-10-06 |
 
 ## What was built
 
